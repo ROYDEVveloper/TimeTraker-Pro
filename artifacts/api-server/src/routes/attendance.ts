@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, employeesTable, attendanceLogsTable } from "@workspace/db";
-import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import {
   PunchBody,
@@ -89,7 +89,7 @@ router.get("/attendance/logs", requireAuth, async (req, res): Promise<void> => {
 
   const employeeIds = [...new Set(rawLogs.map((l) => l.employeeId))];
   const employees = employeeIds.length > 0
-    ? await db.select().from(employeesTable).where(sql`${employeesTable.id} = ANY(${employeeIds})`)
+    ? await db.select().from(employeesTable).where(inArray(employeesTable.id, employeeIds))
     : [];
   const empMap = Object.fromEntries(employees.map((e) => [e.id, e]));
 
@@ -111,7 +111,7 @@ router.get("/attendance/today", requireAuth, async (_req, res): Promise<void> =>
 
   const employeeIds = [...new Set(rawLogs.map((l) => l.employeeId))];
   const employees = employeeIds.length > 0
-    ? await db.select().from(employeesTable).where(sql`${employeesTable.id} = ANY(${employeeIds})`)
+    ? await db.select().from(employeesTable).where(inArray(employeesTable.id, employeeIds))
     : [];
   const empMap = Object.fromEntries(employees.map((e) => [e.id, e]));
 
