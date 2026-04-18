@@ -234,6 +234,57 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /employees/status:
+    get:
+      operationId: getEmployeesStatus
+      tags: [employees]
+      summary: Get all active employees with their current attendance status
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Employee status list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeeWithStatus"
+
+  /work-schedule:
+    get:
+      operationId: getWorkSchedule
+      tags: [settings]
+      summary: Get the current work schedule
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Work schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkSchedule"
+    put:
+      operationId: updateWorkSchedule
+      tags: [settings]
+      summary: Update the work schedule (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkScheduleBody"
+      responses:
+        "200":
+          description: Updated work schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkSchedule"
+
   /attendance/punch:
     post:
       operationId: punch
@@ -791,3 +842,92 @@ components:
         - date
         - checkIns
         - checkOuts
+
+    EmployeeWithStatus:
+      type: object
+      properties:
+        id:
+          type: integer
+        nationalId:
+          type: string
+        name:
+          type: string
+        position:
+          type: string
+        department:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive]
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        attendanceStatus:
+          type: string
+          enum: [inside, outside, absent, day_off]
+        checkInTime:
+          type: ["string", "null"]
+          format: date-time
+        lastLogTime:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - id
+        - nationalId
+        - name
+        - position
+        - department
+        - status
+        - createdAt
+        - updatedAt
+        - attendanceStatus
+        - checkInTime
+        - lastLogTime
+
+    WorkSchedule:
+      type: object
+      properties:
+        id:
+          type: integer
+        startTime:
+          type: string
+        endTime:
+          type: string
+        workDays:
+          type: array
+          items:
+            type: string
+        lateToleranceMinutes:
+          type: integer
+      required:
+        - id
+        - startTime
+        - endTime
+        - workDays
+        - lateToleranceMinutes
+
+    WorkScheduleBody:
+      type: object
+      properties:
+        startTime:
+          type: string
+        endTime:
+          type: string
+        workDays:
+          type: array
+          items:
+            type: string
+        lateToleranceMinutes:
+          type: integer
+      required:
+        - startTime
+        - endTime
+        - workDays
+        - lateToleranceMinutes

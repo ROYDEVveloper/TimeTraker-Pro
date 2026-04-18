@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, employeesTable } from "@workspace/db";
-import { eq, ilike, and, or } from "drizzle-orm";
+import { db, employeesTable, attendanceLogsTable, workScheduleTable } from "@workspace/db";
+import { eq, ilike, and, or, gte, inArray } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middlewares/auth";
 import {
   CreateEmployeeBody,
@@ -11,11 +11,21 @@ import {
   ListEmployeesQueryParams,
 } from "@workspace/api-zod";
 
+const DAY_MAP: Record<number, string> = {
+  0: "sun",
+  1: "mon",
+  2: "tue",
+  3: "wed",
+  4: "thu",
+  5: "fri",
+  6: "sat",
+};
+
 const router: IRouter = Router();
 
 router.get("/employees", requireAuth, async (req, res): Promise<void> => {
   const query = ListEmployeesQueryParams.safeParse(req.query);
-  let conditions = [];
+  const conditions = [];
 
   if (query.success) {
     if (query.data.search) {
@@ -62,6 +72,69 @@ router.post("/employees", requireAuth, requireRole("admin", "manager"), async (r
 
   const [employee] = await db.insert(employeesTable).values(parsed.data).returning();
   res.status(201).json(employee);
+});
+
+router.get("/employees/status", requireAuth, async (_req, res): Promise<void> => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayDayStr = DAY_MAP[new Date().getDay()];
+
+  const schedules = await db.select().from(workScheduleTable);
+  const schedule = schedules[0];
+  const workDays: string[] = schedule?.workDays ?? ["mon", "tue", "wed", "thu", "fri"];
+  const isWorkDay = workDays.includes(todayDayStr);
+
+  const employees = await db
+    .select()
+    .from(employeesTable)
+    .where(eq(employeesTable.status, "active"))
+    .orderBy(employeesTable.name);
+
+  if (employees.length === 0) {
+    res.json([]);
+    return;
+  }
+
+  const employeeIds = employees.map((e) => e.id);
+  const todayLogs = await db
+    .select()
+    .from(attendanceLogsTable)
+    .where(and(gte(attendanceLogsTable.timestamp, today), inArray(attendanceLogsTable.employeeId, employeeIds)));
+
+  const result = employees.map((emp) => {
+    const empLogs = todayLogs
+      .filter((l) => l.employeeId === emp.id)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    const lastLog = empLogs[0];
+    const checkInLog = empLogs.find((l) => l.type === "check_in");
+
+    if (!isWorkDay) {
+      return { ...emp, attendanceStatus: "day_off" as const, checkInTime: null as string | null, lastLogTime: null as string | null };
+    }
+
+    if (!lastLog) {
+      return { ...emp, attendanceStatus: "absent" as const, checkInTime: null as string | null, lastLogTime: null as string | null };
+    }
+
+    if (lastLog.type === "check_in") {
+      return {
+        ...emp,
+        attendanceStatus: "inside" as const,
+        checkInTime: checkInLog?.timestamp?.toISOString() ?? null,
+        lastLogTime: lastLog.timestamp.toISOString(),
+      };
+    }
+
+    return {
+      ...emp,
+      attendanceStatus: "outside" as const,
+      checkInTime: checkInLog?.timestamp?.toISOString() ?? null,
+      lastLogTime: lastLog.timestamp.toISOString(),
+    };
+  });
+
+  res.json(result);
 });
 
 router.get("/employees/:id", requireAuth, async (req, res): Promise<void> => {

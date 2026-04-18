@@ -7,11 +7,12 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ## Project: TimeTrack Pro
 
 A full-stack SaaS attendance control system with:
-- **Frontend**: React + Vite + Tailwind CSS (dark mode default) at `artifacts/timetrack-pro`
+- **Frontend**: React + Vite + Tailwind CSS (dark/light mode toggle) at `artifacts/timetrack-pro`
 - **Backend**: Node/Express 5 API server at `artifacts/api-server`
 - **Database**: PostgreSQL + Drizzle ORM
 - **Auth**: JWT-based with role-based access control (admin/manager/employee)
 - **API Client**: Auto-generated hooks via Orval at `lib/api-client-react`
+- **Language**: Full Spanish UI
 
 ## Stack
 
@@ -28,25 +29,33 @@ A full-stack SaaS attendance control system with:
 
 ## Features
 
-1. **Login Page** (`/login`) — JWT auth with demo credentials shown
-2. **Dashboard** (`/dashboard`) — Stats cards + 7-day attendance bar chart + today's live activity feed
-3. **Kiosk Terminal** (`/terminal`) — Public, numeric keypad + national ID punch-in/out with feedback
-4. **Employees** (`/employees`) — Full CRUD table (admin only for edit/delete)
-5. **Employee Detail** (`/employees/:id`) — Profile + attendance history
-6. **Reports** (`/reports`) — Filterable attendance log browser with CSV export
-7. **User Management** (`/settings/users`) — Admin-only user CRUD
+1. **Login** (`/login`) — JWT auth con credenciales de demo en pantalla
+2. **Panel de Control** (`/dashboard`) — Tarjetas de estadísticas + gráfico de barras 7 días + actividad en tiempo real (polling 30s)
+3. **Terminal** (`/terminal`) — Teclado numérico + soporte teclado físico (Enter, Esc, Backspace, 0-9), sidebar completo
+4. **Empleados** (`/employees`) — CRUD completo + columna de estado en tiempo real (Dentro/Fuera/Ausente/Día libre) + temporizador de tiempo en oficina (actualiza cada segundo)
+5. **Detalle del Empleado** (`/employees/:id`) — Perfil + historial de asistencia
+6. **Reportes** (`/reports`) — Tabla filtrable de asistencia con exportación CSV
+7. **Gestión de Usuarios** (`/settings/users`) — CRUD de usuarios (solo admin)
+8. **Jornada Laboral** (`/settings/jornada`) — Configurar horario, días laborales y tolerancia de tardanza (solo admin)
+9. **Dark/Light mode toggle** — Persiste en localStorage, botón Sol/Luna en sidebar
+
+## API Endpoints (new since initial setup)
+
+- `GET /api/employees/status` — Estado actual de todos los empleados (inside/outside/absent/day_off)
+- `GET /api/work-schedule` — Obtener configuración de jornada laboral
+- `PUT /api/work-schedule` — Actualizar configuración de jornada laboral
 
 ## Roles
 
-- **admin** — Full access (all pages including /settings/users)
-- **manager** — Dashboard, employees, reports
-- **employee** — Dashboard only
+- **admin** — Acceso completo (incluyendo /settings/users y /settings/jornada)
+- **manager** — Panel, empleados, reportes
+- **employee** — Solo panel y terminal
 
 ## Seeded Credentials
 
 - `admin@timetrackpro.com` / `admin123`
 - `manager@timetrackpro.com` / `manager123`
-- 7 seeded employees with sample attendance data
+- 7 empleados de muestra con datos de asistencia de 7 días
 
 ## Key Commands
 
@@ -64,5 +73,8 @@ A full-stack SaaS attendance control system with:
 - After orval codegen, `lib/api-zod/src/index.ts` must only export `./generated/api` (not `./generated/types`)
 - bcrypt hashing is done via `api-server` package only (bcryptjs not installed at root)
 - `useListEmployees`, `useListAttendanceLogs`, `useListUsers` are the correct hook names (not useGet*)
+- ThemeContext lives at `artifacts/timetrack-pro/src/contexts/ThemeContext.tsx`
+- Employee attendance status values: "inside" | "outside" | "absent" | "day_off"
+- Work days use abbreviations: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun"
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

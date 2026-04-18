@@ -3,6 +3,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Users, UserCheck, UserX, LogIn, LogOut, Activity } from "lucide-react";
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number | string; color: string }) {
   return (
@@ -21,22 +22,30 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
 }
 
 export default function Dashboard() {
-  const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
-  const { data: trends } = useGetAttendanceTrends();
-  const { data: todayActivity, isLoading: activityLoading } = useGetTodayActivity();
+  const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary({
+    query: { refetchInterval: 30000 },
+  });
+  const { data: trends } = useGetAttendanceTrends({
+    query: { refetchInterval: 30000 },
+  });
+  const { data: todayActivity, isLoading: activityLoading } = useGetTodayActivity({
+    query: { refetchInterval: 30000 },
+  });
 
   const chartData = trends?.map((t) => ({
-    date: format(new Date(t.date), "EEE"),
-    "Check-ins": t.checkIns,
-    "Check-outs": t.checkOuts,
+    fecha: format(new Date(t.date + "T12:00:00"), "EEE", { locale: es }),
+    "Entradas": t.checkIns,
+    "Salidas": t.checkOuts,
   }));
 
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
         <div>
-          <h1 className="text-xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{format(new Date(), "EEEE, MMMM d, yyyy")}</p>
+          <h1 className="text-xl font-semibold">Panel de Control</h1>
+          <p className="text-sm text-muted-foreground mt-0.5 capitalize">
+            {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
+          </p>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -46,24 +55,33 @@ export default function Dashboard() {
             ))
           ) : (
             <>
-              <StatCard icon={Users} label="Total Employees" value={summary?.totalEmployees ?? 0} color="bg-primary/10 text-primary" />
-              <StatCard icon={Activity} label="Active Today" value={summary?.activeToday ?? 0} color="bg-chart-2/10 text-chart-2" />
-              <StatCard icon={UserCheck} label="Currently In" value={summary?.checkedInNow ?? 0} color="bg-chart-2/10 text-chart-2" />
-              <StatCard icon={LogIn} label="Check-ins Today" value={summary?.checkInsToday ?? 0} color="bg-primary/10 text-primary" />
-              <StatCard icon={LogOut} label="Check-outs Today" value={summary?.checkOutsToday ?? 0} color="bg-chart-3/10 text-chart-3" />
-              <StatCard icon={UserX} label="Absent Today" value={summary?.absentToday ?? 0} color="bg-destructive/10 text-destructive" />
+              <StatCard icon={Users} label="Total Empleados" value={summary?.totalEmployees ?? 0} color="bg-primary/10 text-primary" />
+              <StatCard icon={Activity} label="Activos Hoy" value={summary?.activeToday ?? 0} color="bg-chart-2/10 text-chart-2" />
+              <StatCard icon={UserCheck} label="Dentro Ahora" value={summary?.checkedInNow ?? 0} color="bg-chart-2/10 text-chart-2" />
+              <StatCard icon={LogIn} label="Entradas Hoy" value={summary?.checkInsToday ?? 0} color="bg-primary/10 text-primary" />
+              <StatCard icon={LogOut} label="Salidas Hoy" value={summary?.checkOutsToday ?? 0} color="bg-chart-3/10 text-chart-3" />
+              <StatCard icon={UserX} label="Ausentes Hoy" value={summary?.absentToday ?? 0} color="bg-destructive/10 text-destructive" />
             </>
           )}
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
           <div className="xl:col-span-3 bg-card border border-border rounded-xl p-5">
-            <h2 className="text-sm font-semibold mb-4">Attendance — Last 7 Days</h2>
+            <h2 className="text-sm font-semibold mb-4">Asistencia — Últimos 7 Días</h2>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={chartData} barSize={10}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <XAxis
+                  dataKey="fecha"
+                  tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "hsl(var(--card))",
@@ -74,14 +92,14 @@ export default function Dashboard() {
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: "12px" }} />
-                <Bar dataKey="Check-ins" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Check-outs" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Entradas" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Salidas" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
           <div className="xl:col-span-2 bg-card border border-border rounded-xl p-5">
-            <h2 className="text-sm font-semibold mb-4">Today's Activity</h2>
+            <h2 className="text-sm font-semibold mb-4">Actividad de Hoy</h2>
             {activityLoading ? (
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -101,7 +119,7 @@ export default function Dashboard() {
                     </div>
                     <div className="text-right">
                       <p className={`text-xs font-medium ${log.type === "check_in" ? "text-chart-2" : "text-muted-foreground"}`}>
-                        {log.type === "check_in" ? "In" : "Out"}
+                        {log.type === "check_in" ? "Entrada" : "Salida"}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {format(new Date(log.timestamp), "HH:mm")}
@@ -112,7 +130,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="flex items-center justify-center h-[220px]">
-                <p className="text-sm text-muted-foreground">No activity recorded today</p>
+                <p className="text-sm text-muted-foreground">Sin actividad registrada hoy</p>
               </div>
             )}
           </div>

@@ -23,7 +23,7 @@ export default function Login() {
       login(result.token);
       setLocation("/dashboard");
     } catch {
-      setError("Invalid email or password. Please try again.");
+      setError("Correo o contraseña incorrectos. Por favor intente de nuevo.");
     }
   };
 
@@ -39,13 +39,13 @@ export default function Login() {
               TimeTrack<span className="text-primary">Pro</span>
             </span>
           </div>
-          <p className="text-muted-foreground text-sm">Sign in to your account</p>
+          <p className="text-muted-foreground text-sm">Inicia sesión en tu cuenta</p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-8 shadow-md">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+              <Label htmlFor="email" className="text-sm font-medium">Correo electrónico</Label>
               <Input
                 id="email"
                 type="email"
@@ -58,7 +58,7 @@ export default function Login() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+              <Label htmlFor="password" className="text-sm font-medium">Contraseña</Label>
               <Input
                 id="password"
                 type="password"
@@ -81,24 +81,24 @@ export default function Login() {
               {loginMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Signing in...
+                  Iniciando sesión...
                 </>
               ) : (
-                "Sign in"
+                "Iniciar sesión"
               )}
             </Button>
           </form>
 
           <div className="mt-6 pt-5 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center mb-3">Demo credentials</p>
+            <p className="text-xs text-muted-foreground text-center mb-3">Credenciales de demostración</p>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="bg-secondary rounded-lg px-3 py-2">
-                <p className="font-medium text-foreground">Admin</p>
+                <p className="font-medium text-foreground">Administrador</p>
                 <p className="text-muted-foreground">admin@timetrackpro.com</p>
                 <p className="text-muted-foreground">admin123</p>
               </div>
               <div className="bg-secondary rounded-lg px-3 py-2">
-                <p className="font-medium text-foreground">Manager</p>
+                <p className="font-medium text-foreground">Gerente</p>
                 <p className="text-muted-foreground">manager@timetrackpro.com</p>
                 <p className="text-muted-foreground">manager123</p>
               </div>

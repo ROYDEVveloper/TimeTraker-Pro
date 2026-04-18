@@ -1,5 +1,12 @@
-import { useState } from "react";
-import { useListEmployees, useCreateEmployee, useUpdateEmployee, useDeleteEmployee } from "@workspace/api-client-react";
+import { useState, useEffect } from "react";
+import { Link } from "wouter";
+import {
+  useListEmployees,
+  useGetEmployeesStatus,
+  useCreateEmployee,
+  useUpdateEmployee,
+  useDeleteEmployee,
+} from "@workspace/api-client-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2, Loader2, UserCircle } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Loader2, UserCircle, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -29,9 +36,47 @@ const emptyForm: EmployeeForm = {
   status: "active",
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  inside: "Dentro",
+  outside: "Fuera",
+  absent: "Ausente",
+  day_off: "Día libre",
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  inside: "bg-chart-2/15 text-chart-2",
+  outside: "bg-secondary text-muted-foreground",
+  absent: "bg-destructive/15 text-destructive",
+  day_off: "bg-primary/15 text-primary",
+};
+
+function LiveTimer({ checkInTime }: { checkInTime: string }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const start = new Date(checkInTime).getTime();
+    const update = () => setElapsed(Math.floor((Date.now() - start) / 1000));
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [checkInTime]);
+
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
+  const s = elapsed % 60;
+  return (
+    <span className="font-mono text-xs text-chart-2 tabular-nums">
+      {String(h).padStart(2, "0")}:{String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}
+    </span>
+  );
+}
+
 export default function EmployeesList() {
   const { user } = useAuth();
   const { data: employees, isLoading } = useListEmployees();
+  const { data: statusList } = useGetEmployeesStatus({
+    query: { refetchInterval: 30000 },
+  });
   const createEmployee = useCreateEmployee();
   const updateEmployee = useUpdateEmployee();
   const deleteEmployee = useDeleteEmployee();
@@ -42,6 +87,10 @@ export default function EmployeesList() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<EmployeeForm>(emptyForm);
   const [isDeleteConfirm, setIsDeleteConfirm] = useState<number | null>(null);
+
+  const statusMap = new Map(
+    statusList?.map((s) => [s.id, s]) ?? []
+  );
 
   const filtered = employees?.filter((e) =>
     [e.name, e.department, e.position, e.nationalId].some((f) =>
@@ -72,10 +121,10 @@ export default function EmployeesList() {
     try {
       if (editingId) {
         await updateEmployee.mutateAsync({ id: editingId, data: form });
-        toast({ title: "Employee updated" });
+        toast({ title: "Empleado actualizado correctamente" });
       } else {
         await createEmployee.mutateAsync({ data: form });
-        toast({ title: "Employee created" });
+        toast({ title: "Empleado creado correctamente" });
       }
       setIsDialogOpen(false);
     } catch (err: any) {
@@ -86,7 +135,7 @@ export default function EmployeesList() {
   const handleDelete = async (id: number) => {
     try {
       await deleteEmployee.mutateAsync({ id });
-      toast({ title: "Employee deleted" });
+      toast({ title: "Empleado eliminado" });
       setIsDeleteConfirm(null);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -101,13 +150,13 @@ export default function EmployeesList() {
       <div className="p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold">Employees</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{employees?.length ?? 0} total employees</p>
+            <h1 className="text-xl font-semibold">Empleados</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{employees?.length ?? 0} empleados en total</p>
           </div>
           {isAdmin && (
             <Button onClick={openCreate} size="sm" className="gap-2">
               <Plus className="w-4 h-4" />
-              Add Employee
+              Agregar Empleado
             </Button>
           )}
         </div>
@@ -115,7 +164,7 @@ export default function EmployeesList() {
         <div className="relative max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search employees..."
+            placeholder="Buscar empleados..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 h-9"
@@ -128,63 +177,88 @@ export default function EmployeesList() {
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-secondary/40">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Employee</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Department</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Position</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden xl:table-cell">National ID</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                  {isAdmin && <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actions</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filtered?.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                      No employees found
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/40">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Empleado</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Departamento</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Cargo</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden xl:table-cell">ID Nacional</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Estado</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tiempo en oficina</th>
+                    {isAdmin && <th className="text-right px-4 py-3 font-medium text-muted-foreground">Acciones</th>}
                   </tr>
-                ) : (
-                  filtered?.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-secondary/30 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <UserCircle className="w-5 h-5 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{emp.name}</p>
-                            <p className="text-xs text-muted-foreground">{emp.email}</p>
-                          </div>
-                        </div>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filtered?.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                        No se encontraron empleados
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{emp.department}</td>
-                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{emp.position}</td>
-                      <td className="px-4 py-3 font-mono text-xs hidden xl:table-cell">{emp.nationalId}</td>
-                      <td className="px-4 py-3">
-                        <Badge variant={emp.status === "active" ? "default" : "secondary"} className="text-xs">
-                          {emp.status}
-                        </Badge>
-                      </td>
-                      {isAdmin && (
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(emp)}>
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setIsDeleteConfirm(emp.id)}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </td>
-                      )}
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filtered?.map((emp) => {
+                      const empStatus = statusMap.get(emp.id);
+                      const attendanceStatus = empStatus?.attendanceStatus ?? "outside";
+                      const checkInTime = empStatus?.lastCheckIn;
+                      const isInside = attendanceStatus === "inside";
+
+                      return (
+                        <tr key={emp.id} className="hover:bg-secondary/30 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <UserCircle className="w-5 h-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="font-medium">{emp.name}</p>
+                                <p className="text-xs text-muted-foreground">{emp.email}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{emp.department}</td>
+                          <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{emp.position}</td>
+                          <td className="px-4 py-3 font-mono text-xs hidden xl:table-cell">{emp.nationalId}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLOR[attendanceStatus] ?? ""}`}>
+                              {isInside && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-chart-2 animate-pulse" />
+                              )}
+                              {STATUS_LABEL[attendanceStatus] ?? attendanceStatus}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {isInside && checkInTime ? (
+                              <LiveTimer checkInTime={checkInTime} />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          {isAdmin && (
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Link href={`/employees/${emp.id}`}>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </Button>
+                                </Link>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(emp)}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setIsDeleteConfirm(emp.id)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -192,51 +266,51 @@ export default function EmployeesList() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Employee" : "Add Employee"}</DialogTitle>
+            <DialogTitle>{editingId ? "Editar Empleado" : "Agregar Empleado"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Full Name</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Jane Smith" />
+                <Label>Nombre completo</Label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="María García" />
               </div>
               <div className="space-y-2">
-                <Label>National ID</Label>
+                <Label>ID Nacional</Label>
                 <Input value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })} placeholder="12345678" />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Email</Label>
-              <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="jane@company.com" />
+              <Label>Correo electrónico</Label>
+              <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="maria@empresa.com" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Department</Label>
-                <Input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} placeholder="Engineering" />
+                <Label>Departamento</Label>
+                <Input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} placeholder="Ingeniería" />
               </div>
               <div className="space-y-2">
-                <Label>Position</Label>
-                <Input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} placeholder="Developer" />
+                <Label>Cargo</Label>
+                <Input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} placeholder="Desarrollador" />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Status</Label>
+              <Label>Estado</Label>
               <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as "active" | "inactive" })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="active">Activo</SelectItem>
+                  <SelectItem value="inactive">Inactivo</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {editingId ? "Save Changes" : "Add Employee"}
+              {editingId ? "Guardar Cambios" : "Agregar Empleado"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -245,14 +319,14 @@ export default function EmployeesList() {
       <Dialog open={isDeleteConfirm !== null} onOpenChange={() => setIsDeleteConfirm(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Delete Employee</DialogTitle>
+            <DialogTitle>Eliminar Empleado</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">This will permanently delete the employee and all their attendance records.</p>
+          <p className="text-sm text-muted-foreground">Esto eliminará permanentemente al empleado y todos sus registros de asistencia.</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteConfirm(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsDeleteConfirm(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={() => isDeleteConfirm && handleDelete(isDeleteConfirm)} disabled={deleteEmployee.isPending}>
               {deleteEmployee.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Delete
+              Eliminar
             </Button>
           </DialogFooter>
         </DialogContent>

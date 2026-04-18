@@ -203,6 +203,59 @@ export interface AttendanceTrend {
   checkOuts: number;
 }
 
+export type EmployeeWithStatusStatus =
+  (typeof EmployeeWithStatusStatus)[keyof typeof EmployeeWithStatusStatus];
+
+export const EmployeeWithStatusStatus = {
+  active: "active",
+  inactive: "inactive",
+} as const;
+
+export type EmployeeWithStatusAttendanceStatus =
+  (typeof EmployeeWithStatusAttendanceStatus)[keyof typeof EmployeeWithStatusAttendanceStatus];
+
+export const EmployeeWithStatusAttendanceStatus = {
+  inside: "inside",
+  outside: "outside",
+  absent: "absent",
+  day_off: "day_off",
+} as const;
+
+export interface EmployeeWithStatus {
+  id: number;
+  nationalId: string;
+  name: string;
+  position: string;
+  department: string;
+  status: EmployeeWithStatusStatus;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  attendanceStatus: EmployeeWithStatusAttendanceStatus;
+  /** @nullable */
+  checkInTime: string | null;
+  /** @nullable */
+  lastLogTime: string | null;
+}
+
+export interface WorkSchedule {
+  id: number;
+  startTime: string;
+  endTime: string;
+  workDays: string[];
+  lateToleranceMinutes: number;
+}
+
+export interface WorkScheduleBody {
+  startTime: string;
+  endTime: string;
+  workDays: string[];
+  lateToleranceMinutes: number;
+}
+
 export type ListEmployeesParams = {
   search?: string;
   status?: ListEmployeesStatus;

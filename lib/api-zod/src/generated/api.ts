@@ -143,6 +143,57 @@ export const DeleteEmployeeParams = zod.object({
 });
 
 /**
+ * @summary Get all active employees with their current attendance status
+ */
+export const GetEmployeesStatusResponseItem = zod.object({
+  id: zod.number(),
+  nationalId: zod.string(),
+  name: zod.string(),
+  position: zod.string(),
+  department: zod.string(),
+  status: zod.enum(["active", "inactive"]),
+  email: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  attendanceStatus: zod.enum(["inside", "outside", "absent", "day_off"]),
+  checkInTime: zod.coerce.date().nullable(),
+  lastLogTime: zod.coerce.date().nullable(),
+});
+export const GetEmployeesStatusResponse = zod.array(
+  GetEmployeesStatusResponseItem,
+);
+
+/**
+ * @summary Get the current work schedule
+ */
+export const GetWorkScheduleResponse = zod.object({
+  id: zod.number(),
+  startTime: zod.string(),
+  endTime: zod.string(),
+  workDays: zod.array(zod.string()),
+  lateToleranceMinutes: zod.number(),
+});
+
+/**
+ * @summary Update the work schedule (admin only)
+ */
+export const UpdateWorkScheduleBody = zod.object({
+  startTime: zod.string(),
+  endTime: zod.string(),
+  workDays: zod.array(zod.string()),
+  lateToleranceMinutes: zod.number(),
+});
+
+export const UpdateWorkScheduleResponse = zod.object({
+  id: zod.number(),
+  startTime: zod.string(),
+  endTime: zod.string(),
+  workDays: zod.array(zod.string()),
+  lateToleranceMinutes: zod.number(),
+});
+
+/**
  * @summary Record employee check-in or check-out by national ID
  */
 export const PunchBody = zod.object({

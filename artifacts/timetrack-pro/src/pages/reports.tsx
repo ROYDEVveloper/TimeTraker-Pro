@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Download } from "lucide-react";
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 export default function Reports() {
   const today = new Date();
@@ -32,14 +33,14 @@ export default function Reports() {
   const exportCsv = () => {
     if (!filtered) return;
     const rows = [
-      ["Date", "Time", "Employee", "National ID", "Department", "Type", "Notes"],
+      ["Fecha", "Hora", "Empleado", "ID Nacional", "Departamento", "Tipo", "Notas"],
       ...filtered.map((l) => [
         format(new Date(l.timestamp), "yyyy-MM-dd"),
         format(new Date(l.timestamp), "HH:mm:ss"),
         l.employee?.name ?? "",
         l.employee?.nationalId ?? "",
         l.employee?.department ?? "",
-        l.type,
+        l.type === "check_in" ? "Entrada" : "Salida",
         l.notes ?? "",
       ]),
     ];
@@ -48,7 +49,7 @@ export default function Reports() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `attendance_${startDate}_${endDate}.csv`;
+    a.download = `asistencia_${startDate}_${endDate}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -58,32 +59,32 @@ export default function Reports() {
       <div className="p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold">Reports</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Browse and export attendance records</p>
+            <h1 className="text-xl font-semibold">Reportes</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Consultar y exportar registros de asistencia</p>
           </div>
           <Button variant="outline" size="sm" onClick={exportCsv} disabled={!filtered?.length} className="gap-2">
             <Download className="w-4 h-4" />
-            Export CSV
+            Exportar CSV
           </Button>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="space-y-1.5">
-            <Label className="text-xs">From</Label>
+            <Label className="text-xs">Desde</Label>
             <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-9" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">To</Label>
+            <Label className="text-xs">Hasta</Label>
             <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-9" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Employee</Label>
+            <Label className="text-xs">Empleado</Label>
             <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
               <SelectTrigger className="h-9">
-                <SelectValue placeholder="All employees" />
+                <SelectValue placeholder="Todos los empleados" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Employees</SelectItem>
+                <SelectItem value="all">Todos los empleados</SelectItem>
                 {employees?.map((e) => (
                   <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>
                 ))}
@@ -91,15 +92,15 @@ export default function Reports() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Type</Label>
+            <Label className="text-xs">Tipo</Label>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="check_in">Check In</SelectItem>
-                <SelectItem value="check_out">Check Out</SelectItem>
+                <SelectItem value="all">Todos los tipos</SelectItem>
+                <SelectItem value="check_in">Entrada</SelectItem>
+                <SelectItem value="check_out">Salida</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -107,7 +108,7 @@ export default function Reports() {
 
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">{filtered?.length ?? 0} records</span>
+            <span className="text-sm font-medium text-muted-foreground">{filtered?.length ?? 0} registros</span>
           </div>
           {isLoading ? (
             <div className="p-10 flex items-center justify-center">
@@ -118,26 +119,30 @@ export default function Reports() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/40">
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date & Time</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Employee</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Department</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">National ID</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden xl:table-cell">Notes</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Fecha y Hora</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Empleado</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Departamento</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">ID Nacional</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tipo</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden xl:table-cell">Notas</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {(!filtered || filtered.length === 0) ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">No records found for the selected filters</td>
+                      <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                        No se encontraron registros para los filtros seleccionados
+                      </td>
                     </tr>
                   ) : (
                     filtered.map((log) => (
                       <tr key={log.id} className="hover:bg-secondary/20 transition-colors">
                         <td className="px-4 py-3">
                           <div>
-                            <p>{format(new Date(log.timestamp), "MMM d, yyyy")}</p>
-                            <p className="text-xs font-mono text-muted-foreground">{format(new Date(log.timestamp), "HH:mm:ss")}</p>
+                            <p className="capitalize">{format(new Date(log.timestamp), "d MMM yyyy", { locale: es })}</p>
+                            <p className="text-xs font-mono text-muted-foreground">
+                              {format(new Date(log.timestamp), "HH:mm:ss")}
+                            </p>
                           </div>
                         </td>
                         <td className="px-4 py-3 font-medium">{log.employee?.name}</td>
@@ -145,7 +150,7 @@ export default function Reports() {
                         <td className="px-4 py-3 font-mono text-xs hidden lg:table-cell">{log.employee?.nationalId}</td>
                         <td className="px-4 py-3">
                           <Badge variant={log.type === "check_in" ? "default" : "secondary"} className="text-xs">
-                            {log.type === "check_in" ? "Check In" : "Check Out"}
+                            {log.type === "check_in" ? "Entrada" : "Salida"}
                           </Badge>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell">{log.notes ?? "—"}</td>

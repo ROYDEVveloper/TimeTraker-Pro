@@ -26,6 +26,7 @@ import type {
   CreateUserBody,
   DashboardSummary,
   Employee,
+  EmployeeWithStatus,
   ErrorResponse,
   GetEmployeeAttendanceParams,
   HealthStatus,
@@ -38,6 +39,8 @@ import type {
   UpdateEmployeeBody,
   UpdateUserBody,
   UserProfile,
+  WorkSchedule,
+  WorkScheduleBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -791,6 +794,242 @@ export const useDeleteEmployee = <
   TContext
 > => {
   return useMutation(getDeleteEmployeeMutationOptions(options));
+};
+
+/**
+ * @summary Get all active employees with their current attendance status
+ */
+export const getGetEmployeesStatusUrl = () => {
+  return `/api/employees/status`;
+};
+
+export const getEmployeesStatus = async (
+  options?: RequestInit,
+): Promise<EmployeeWithStatus[]> => {
+  return customFetch<EmployeeWithStatus[]>(getGetEmployeesStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetEmployeesStatusQueryKey = () => {
+  return [`/api/employees/status`] as const;
+};
+
+export const getGetEmployeesStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEmployeesStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEmployeesStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetEmployeesStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getEmployeesStatus>>
+  > = ({ signal }) => getEmployeesStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEmployeesStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEmployeesStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEmployeesStatus>>
+>;
+export type GetEmployeesStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all active employees with their current attendance status
+ */
+
+export function useGetEmployeesStatus<
+  TData = Awaited<ReturnType<typeof getEmployeesStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEmployeesStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEmployeesStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the current work schedule
+ */
+export const getGetWorkScheduleUrl = () => {
+  return `/api/work-schedule`;
+};
+
+export const getWorkSchedule = async (
+  options?: RequestInit,
+): Promise<WorkSchedule> => {
+  return customFetch<WorkSchedule>(getGetWorkScheduleUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWorkScheduleQueryKey = () => {
+  return [`/api/work-schedule`] as const;
+};
+
+export const getGetWorkScheduleQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWorkSchedule>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWorkSchedule>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetWorkScheduleQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorkSchedule>>> = ({
+    signal,
+  }) => getWorkSchedule({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWorkSchedule>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWorkScheduleQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWorkSchedule>>
+>;
+export type GetWorkScheduleQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the current work schedule
+ */
+
+export function useGetWorkSchedule<
+  TData = Awaited<ReturnType<typeof getWorkSchedule>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWorkSchedule>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWorkScheduleQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update the work schedule (admin only)
+ */
+export const getUpdateWorkScheduleUrl = () => {
+  return `/api/work-schedule`;
+};
+
+export const updateWorkSchedule = async (
+  workScheduleBody: WorkScheduleBody,
+  options?: RequestInit,
+): Promise<WorkSchedule> => {
+  return customFetch<WorkSchedule>(getUpdateWorkScheduleUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(workScheduleBody),
+  });
+};
+
+export const getUpdateWorkScheduleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateWorkSchedule>>,
+    TError,
+    { data: BodyType<WorkScheduleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateWorkSchedule>>,
+  TError,
+  { data: BodyType<WorkScheduleBody> },
+  TContext
+> => {
+  const mutationKey = ["updateWorkSchedule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateWorkSchedule>>,
+    { data: BodyType<WorkScheduleBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateWorkSchedule(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateWorkScheduleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateWorkSchedule>>
+>;
+export type UpdateWorkScheduleMutationBody = BodyType<WorkScheduleBody>;
+export type UpdateWorkScheduleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update the work schedule (admin only)
+ */
+export const useUpdateWorkSchedule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateWorkSchedule>>,
+    TError,
+    { data: BodyType<WorkScheduleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateWorkSchedule>>,
+  TError,
+  { data: BodyType<WorkScheduleBody> },
+  TContext
+> => {
+  return useMutation(getUpdateWorkScheduleMutationOptions(options));
 };
 
 /**
