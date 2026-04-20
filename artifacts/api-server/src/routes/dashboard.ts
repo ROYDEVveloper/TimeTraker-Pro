@@ -5,48 +5,53 @@ import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-router.get("/dashboard/summary", requireAuth, async (_req, res): Promise<void> => {
+router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> => {
+  const companyId = req.user!.companyId;
+  if (!companyId) {
+    res.status(403).json({ error: "Se requiere contexto de empresa" });
+    return;
+  }
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const [totalResult] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(employeesTable)
-    .where(eq(employeesTable.status, "active"));
+    .where(and(eq(employeesTable.companyId, companyId), eq(employeesTable.status, "active")));
 
   const todayLogs = await db
     .select()
     .from(attendanceLogsTable)
-    .where(gte(attendanceLogsTable.timestamp, today));
+    .where(and(eq(attendanceLogsTable.companyId, companyId), gte(attendanceLogsTable.timestamp, today)));
 
   const checkInsToday = todayLogs.filter((l) => l.type === "check_in").length;
   const checkOutsToday = todayLogs.filter((l) => l.type === "check_out").length;
 
-  const checkedInEmployees = new Set<number>();
-  const checkedOutEmployees = new Set<number>();
   const activeTodayEmployees = new Set<number>();
-
   for (const log of todayLogs) {
     activeTodayEmployees.add(log.employeeId);
-    if (log.type === "check_in") checkedInEmployees.add(log.employeeId);
-    if (log.type === "check_out") checkedOutEmployees.add(log.employeeId);
   }
 
-  const checkedInNow = [...checkedInEmployees].filter((id) => !checkedOutEmployees.has(id)).length;
   const totalEmployees = totalResult?.count ?? 0;
   const absentToday = Math.max(0, totalEmployees - activeTodayEmployees.size);
 
   res.json({
     totalEmployees,
     activeToday: activeTodayEmployees.size,
-    checkedInNow,
     checkInsToday,
     checkOutsToday,
     absentToday,
   });
 });
 
-router.get("/dashboard/attendance-trends", requireAuth, async (_req, res): Promise<void> => {
+router.get("/dashboard/attendance-trends", requireAuth, async (req, res): Promise<void> => {
+  const companyId = req.user!.companyId;
+  if (!companyId) {
+    res.status(403).json({ error: "Se requiere contexto de empresa" });
+    return;
+  }
+
   const trends = [];
 
   for (let i = 6; i >= 0; i--) {
@@ -62,18 +67,16 @@ router.get("/dashboard/attendance-trends", requireAuth, async (_req, res): Promi
       .from(attendanceLogsTable)
       .where(
         and(
+          eq(attendanceLogsTable.companyId, companyId),
           gte(attendanceLogsTable.timestamp, day),
           sql`${attendanceLogsTable.timestamp} < ${nextDay}`
         )
       );
 
-    const checkIns = logs.filter((l) => l.type === "check_in").length;
-    const checkOuts = logs.filter((l) => l.type === "check_out").length;
-
     trends.push({
       date: day.toISOString().split("T")[0],
-      checkIns,
-      checkOuts,
+      checkIns: logs.filter((l) => l.type === "check_in").length,
+      checkOuts: logs.filter((l) => l.type === "check_out").length,
     });
   }
 

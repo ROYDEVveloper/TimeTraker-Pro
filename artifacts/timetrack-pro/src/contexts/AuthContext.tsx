@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     localStorage.removeItem("timetrack_token");
     setTokenState(null);
-    setLocation("/login");
+    setLocation("/");
   };
 
   const isLoading = isUserLoading && !!token;

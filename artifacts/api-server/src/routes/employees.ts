@@ -2,84 +2,93 @@ import { Router, type IRouter } from "express";
 import { db, employeesTable, attendanceLogsTable, workScheduleTable } from "@workspace/db";
 import { eq, ilike, and, or, gte, inArray } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middlewares/auth";
-import {
-  CreateEmployeeBody,
-  UpdateEmployeeBody,
-  GetEmployeeParams,
-  UpdateEmployeeParams,
-  DeleteEmployeeParams,
-  ListEmployeesQueryParams,
-} from "@workspace/api-zod";
 
 const DAY_MAP: Record<number, string> = {
-  0: "sun",
-  1: "mon",
-  2: "tue",
-  3: "wed",
-  4: "thu",
-  5: "fri",
-  6: "sat",
+  0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat",
 };
 
 const router: IRouter = Router();
 
 router.get("/employees", requireAuth, async (req, res): Promise<void> => {
-  const query = ListEmployeesQueryParams.safeParse(req.query);
-  const conditions = [];
-
-  if (query.success) {
-    if (query.data.search) {
-      const search = `%${query.data.search}%`;
-      conditions.push(
-        or(
-          ilike(employeesTable.name, search),
-          ilike(employeesTable.nationalId, search),
-          ilike(employeesTable.department, search),
-          ilike(employeesTable.position, search)
-        )
-      );
-    }
-    if (query.data.status) {
-      conditions.push(eq(employeesTable.status, query.data.status));
-    }
+  const companyId = req.user!.companyId;
+  if (!companyId) {
+    res.status(403).json({ error: "Se requiere contexto de empresa" });
+    return;
   }
+
+  const { search, status } = req.query as Record<string, string>;
+  const conditions: ReturnType<typeof eq>[] = [eq(employeesTable.companyId, companyId) as any];
+
+  if (search) {
+    const s = `%${search}%`;
+    conditions.push(
+      or(
+        ilike(employeesTable.name, s),
+        ilike(employeesTable.documentNumber, s),
+        ilike(employeesTable.department, s),
+        ilike(employeesTable.position, s)
+      ) as any
+    );
+  }
+  if (status) conditions.push(eq(employeesTable.status, status as any) as any);
 
   const employees = await db
     .select()
     .from(employeesTable)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(employeesTable.name);
 
   res.json(employees);
 });
 
-router.post("/employees", requireAuth, requireRole("admin", "manager"), async (req, res): Promise<void> => {
-  const parsed = CreateEmployeeBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+router.post("/employees", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const companyId = req.user!.companyId;
+  if (!companyId) {
+    res.status(403).json({ error: "Se requiere contexto de empresa" });
+    return;
+  }
+
+  const { documentNumber, name, position, department, email, phone, status } = req.body;
+
+  if (!documentNumber || !name || !position || !department) {
+    res.status(400).json({ error: "Campos requeridos: documentNumber, name, position, department" });
     return;
   }
 
   const existing = await db
     .select({ id: employeesTable.id })
     .from(employeesTable)
-    .where(eq(employeesTable.nationalId, parsed.data.nationalId));
+    .where(eq(employeesTable.documentNumber, documentNumber));
 
   if (existing.length > 0) {
-    res.status(409).json({ error: "An employee with this national ID already exists" });
+    res.status(409).json({ error: "Ya existe un empleado con este número de documento" });
     return;
   }
 
-  const [employee] = await db.insert(employeesTable).values(parsed.data).returning();
+  const [employee] = await db
+    .insert(employeesTable)
+    .values({ companyId, documentNumber, name, position, department, email, phone, status: status ?? "active" })
+    .returning();
+
   res.status(201).json(employee);
 });
 
-router.get("/employees/status", requireAuth, async (_req, res): Promise<void> => {
+router.get("/employees/status", requireAuth, async (req, res): Promise<void> => {
+  const companyId = req.user!.companyId;
+  if (!companyId) {
+    res.status(403).json({ error: "Se requiere contexto de empresa" });
+    return;
+  }
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayDayStr = DAY_MAP[new Date().getDay()];
 
-  const schedules = await db.select().from(workScheduleTable);
+  const schedules = await db
+    .select()
+    .from(workScheduleTable)
+    .where(eq(workScheduleTable.companyId, companyId));
+
   const schedule = schedules[0];
   const workDays: string[] = schedule?.workDays ?? ["mon", "tue", "wed", "thu", "fri"];
   const isWorkDay = workDays.includes(todayDayStr);
@@ -87,7 +96,7 @@ router.get("/employees/status", requireAuth, async (_req, res): Promise<void> =>
   const employees = await db
     .select()
     .from(employeesTable)
-    .where(eq(employeesTable.status, "active"))
+    .where(and(eq(employeesTable.companyId, companyId), eq(employeesTable.status, "active")))
     .orderBy(employeesTable.name);
 
   if (employees.length === 0) {
@@ -110,18 +119,18 @@ router.get("/employees/status", requireAuth, async (_req, res): Promise<void> =>
     const checkInLog = empLogs.find((l) => l.type === "check_in");
 
     if (!isWorkDay) {
-      return { ...emp, attendanceStatus: "day_off" as const, checkInTime: null as string | null, lastLogTime: null as string | null };
+      return { ...emp, attendanceStatus: "day_off" as const, lastCheckIn: null as string | null, lastLogTime: null as string | null };
     }
 
     if (!lastLog) {
-      return { ...emp, attendanceStatus: "absent" as const, checkInTime: null as string | null, lastLogTime: null as string | null };
+      return { ...emp, attendanceStatus: "absent" as const, lastCheckIn: null as string | null, lastLogTime: null as string | null };
     }
 
     if (lastLog.type === "check_in") {
       return {
         ...emp,
         attendanceStatus: "inside" as const,
-        checkInTime: checkInLog?.timestamp?.toISOString() ?? null,
+        lastCheckIn: checkInLog?.timestamp?.toISOString() ?? null,
         lastLogTime: lastLog.timestamp.toISOString(),
       };
     }
@@ -129,7 +138,7 @@ router.get("/employees/status", requireAuth, async (_req, res): Promise<void> =>
     return {
       ...emp,
       attendanceStatus: "outside" as const,
-      checkInTime: checkInLog?.timestamp?.toISOString() ?? null,
+      lastCheckIn: checkInLog?.timestamp?.toISOString() ?? null,
       lastLogTime: lastLog.timestamp.toISOString(),
     };
   });
@@ -138,66 +147,83 @@ router.get("/employees/status", requireAuth, async (_req, res): Promise<void> =>
 });
 
 router.get("/employees/:id", requireAuth, async (req, res): Promise<void> => {
-  const params = GetEmployeeParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+  const companyId = req.user!.companyId;
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "ID inválido" });
     return;
   }
 
-  const [employee] = await db
-    .select()
-    .from(employeesTable)
-    .where(eq(employeesTable.id, params.data.id));
+  const conditions: any[] = [eq(employeesTable.id, id)];
+  if (companyId) conditions.push(eq(employeesTable.companyId, companyId));
+
+  const [employee] = await db.select().from(employeesTable).where(and(...conditions));
 
   if (!employee) {
-    res.status(404).json({ error: "Employee not found" });
+    res.status(404).json({ error: "Empleado no encontrado" });
     return;
   }
 
   res.json(employee);
 });
 
-router.patch("/employees/:id", requireAuth, requireRole("admin", "manager"), async (req, res): Promise<void> => {
-  const params = UpdateEmployeeParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+router.patch("/employees/:id", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const companyId = req.user!.companyId;
+  if (!companyId) {
+    res.status(403).json({ error: "Se requiere contexto de empresa" });
     return;
   }
 
-  const parsed = UpdateEmployeeBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "ID inválido" });
     return;
   }
+
+  const { documentNumber, name, position, department, email, phone, status } = req.body;
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (documentNumber !== undefined) updates.documentNumber = documentNumber;
+  if (name !== undefined) updates.name = name;
+  if (position !== undefined) updates.position = position;
+  if (department !== undefined) updates.department = department;
+  if (email !== undefined) updates.email = email;
+  if (phone !== undefined) updates.phone = phone;
+  if (status !== undefined) updates.status = status;
 
   const [employee] = await db
     .update(employeesTable)
-    .set({ ...parsed.data, updatedAt: new Date() })
-    .where(eq(employeesTable.id, params.data.id))
+    .set(updates)
+    .where(and(eq(employeesTable.id, id), eq(employeesTable.companyId, companyId)))
     .returning();
 
   if (!employee) {
-    res.status(404).json({ error: "Employee not found" });
+    res.status(404).json({ error: "Empleado no encontrado" });
     return;
   }
 
   res.json(employee);
 });
 
-router.delete("/employees/:id", requireAuth, requireRole("admin", "manager"), async (req, res): Promise<void> => {
-  const params = DeleteEmployeeParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+router.delete("/employees/:id", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const companyId = req.user!.companyId;
+  if (!companyId) {
+    res.status(403).json({ error: "Se requiere contexto de empresa" });
+    return;
+  }
+
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "ID inválido" });
     return;
   }
 
   const [employee] = await db
     .delete(employeesTable)
-    .where(eq(employeesTable.id, params.data.id))
+    .where(and(eq(employeesTable.id, id), eq(employeesTable.companyId, companyId)))
     .returning();
 
   if (!employee) {
-    res.status(404).json({ error: "Employee not found" });
+    res.status(404).json({ error: "Empleado no encontrado" });
     return;
   }
 

@@ -1,78 +1,161 @@
 import { Router, type IRouter } from "express";
-import { db, employeesTable, attendanceLogsTable } from "@workspace/db";
+import { db, employeesTable, attendanceLogsTable, workScheduleTable } from "@workspace/db";
 import { eq, desc, and, gte, lte, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
-import {
-  PunchBody,
-  ListAttendanceLogsQueryParams,
-  GetEmployeeAttendanceParams,
-  GetEmployeeAttendanceQueryParams,
-} from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
+// Public punch endpoint — no auth required, employee found by document number
 router.post("/attendance/punch", async (req, res): Promise<void> => {
-  const parsed = PunchBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+  const { documentNumber } = req.body;
+
+  if (!documentNumber) {
+    res.status(400).json({ error: "Número de documento requerido" });
     return;
   }
 
   const [employee] = await db
     .select()
     .from(employeesTable)
-    .where(and(eq(employeesTable.nationalId, parsed.data.nationalId), eq(employeesTable.status, "active")));
+    .where(and(eq(employeesTable.documentNumber, documentNumber), eq(employeesTable.status, "active")));
 
   if (!employee) {
-    res.status(404).json({ error: "Employee not found or inactive" });
+    res.status(404).json({ error: "Empleado no encontrado o inactivo" });
     return;
   }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [lastLog] = await db
+  const todayLogs = await db
     .select()
     .from(attendanceLogsTable)
     .where(and(eq(attendanceLogsTable.employeeId, employee.id), gte(attendanceLogsTable.timestamp, today)))
-    .orderBy(desc(attendanceLogsTable.timestamp))
-    .limit(1);
+    .orderBy(desc(attendanceLogsTable.timestamp));
 
+  const lastLog = todayLogs[0];
   const type = !lastLog || lastLog.type === "check_out" ? "check_in" : "check_out";
 
+  const now = new Date();
   const [log] = await db
     .insert(attendanceLogsTable)
-    .values({ employeeId: employee.id, type, timestamp: new Date() })
+    .values({ companyId: employee.companyId, employeeId: employee.id, type, timestamp: now })
     .returning();
+
+  // Calculate today summary
+  const checkInLog = [...todayLogs, log].filter((l) => l.type === "check_in").sort((a, b) =>
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  )[0];
+
+  const checkOutLogs = [...todayLogs, log]
+    .filter((l) => l.type === "check_out")
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  const firstCheckIn = checkInLog?.timestamp ? new Date(checkInLog.timestamp) : null;
+  const lastCheckOut = type === "check_out" ? now : (checkOutLogs[0]?.timestamp ? new Date(checkOutLogs[0].timestamp) : null);
+
+  let workedHours = 0;
+  let extraHours = 0;
+
+  if (firstCheckIn && lastCheckOut) {
+    workedHours = (lastCheckOut.getTime() - firstCheckIn.getTime()) / (1000 * 60 * 60);
+    extraHours = Math.max(0, workedHours - 8);
+  }
 
   const message =
     type === "check_in"
-      ? `Welcome, ${employee.name}! Check-in recorded.`
-      : `Goodbye, ${employee.name}! Check-out recorded.`;
+      ? `¡Bienvenido, ${employee.name}! Entrada registrada.`
+      : `¡Hasta luego, ${employee.name}! Salida registrada.`;
 
-  res.json({ type, employee, log, message });
+  res.json({
+    type,
+    employee,
+    log,
+    message,
+    todaySummary: {
+      checkInTime: firstCheckIn?.toISOString() ?? null,
+      checkOutTime: type === "check_out" ? now.toISOString() : null,
+      workedHours: Math.round(workedHours * 100) / 100,
+      extraHours: Math.round(extraHours * 100) / 100,
+    },
+  });
 });
 
-router.get("/attendance/logs", requireAuth, async (req, res): Promise<void> => {
-  const queryParsed = ListAttendanceLogsQueryParams.safeParse(req.query);
-  const params = queryParsed.success ? queryParsed.data : {};
+// Get today summary for a document number (public)
+router.get("/attendance/today-summary/:document", async (req, res): Promise<void> => {
+  const { document } = req.params;
 
-  const page = params.page ?? 1;
-  const limit = params.limit ?? 50;
+  const [employee] = await db
+    .select()
+    .from(employeesTable)
+    .where(eq(employeesTable.documentNumber, document));
+
+  if (!employee) {
+    res.status(404).json({ error: "Empleado no encontrado" });
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todayLogs = await db
+    .select()
+    .from(attendanceLogsTable)
+    .where(and(eq(attendanceLogsTable.employeeId, employee.id), gte(attendanceLogsTable.timestamp, today)))
+    .orderBy(attendanceLogsTable.timestamp);
+
+  const checkIns = todayLogs.filter((l) => l.type === "check_in");
+  const checkOuts = todayLogs.filter((l) => l.type === "check_out");
+
+  const firstCheckIn = checkIns[0]?.timestamp ? new Date(checkIns[0].timestamp) : null;
+  const lastCheckOut = checkOuts[checkOuts.length - 1]?.timestamp
+    ? new Date(checkOuts[checkOuts.length - 1].timestamp)
+    : null;
+
+  let workedHours = 0;
+  let extraHours = 0;
+
+  if (firstCheckIn && lastCheckOut) {
+    workedHours = (lastCheckOut.getTime() - firstCheckIn.getTime()) / (1000 * 60 * 60);
+    extraHours = Math.max(0, workedHours - 8);
+  }
+
+  res.json({
+    employee: { id: employee.id, name: employee.name, department: employee.department, documentNumber: employee.documentNumber },
+    checkInTime: firstCheckIn?.toISOString() ?? null,
+    checkOutTime: lastCheckOut?.toISOString() ?? null,
+    workedHours: Math.round(workedHours * 100) / 100,
+    extraHours: Math.round(extraHours * 100) / 100,
+  });
+});
+
+// Attendance logs (auth required, filtered by company)
+router.get("/attendance/logs", requireAuth, async (req, res): Promise<void> => {
+  const companyId = req.user!.companyId;
+  if (!companyId) {
+    res.status(403).json({ error: "Se requiere contexto de empresa" });
+    return;
+  }
+
+  const { employeeId, startDate, endDate, page: pageStr, limit: limitStr } = req.query as Record<string, string>;
+  const page = parseInt(pageStr ?? "1");
+  const limit = parseInt(limitStr ?? "50");
   const offset = (page - 1) * limit;
 
-  const conditions = [];
-  if (params.employeeId) conditions.push(eq(attendanceLogsTable.employeeId, params.employeeId));
-  if (params.date) {
-    const start = new Date(params.date);
+  const conditions: any[] = [eq(attendanceLogsTable.companyId, companyId)];
+  if (employeeId) conditions.push(eq(attendanceLogsTable.employeeId, parseInt(employeeId)));
+  if (startDate) {
+    const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
-    const end = new Date(params.date);
-    end.setHours(23, 59, 59, 999);
     conditions.push(gte(attendanceLogsTable.timestamp, start));
+  }
+  if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
     conditions.push(lte(attendanceLogsTable.timestamp, end));
   }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClause = and(...conditions);
 
   const [countResult] = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -87,9 +170,9 @@ router.get("/attendance/logs", requireAuth, async (req, res): Promise<void> => {
     .limit(limit)
     .offset(offset);
 
-  const employeeIds = [...new Set(rawLogs.map((l) => l.employeeId))];
-  const employees = employeeIds.length > 0
-    ? await db.select().from(employeesTable).where(inArray(employeesTable.id, employeeIds))
+  const empIds = [...new Set(rawLogs.map((l) => l.employeeId))];
+  const employees = empIds.length > 0
+    ? await db.select().from(employeesTable).where(inArray(employeesTable.id, empIds))
     : [];
   const empMap = Object.fromEntries(employees.map((e) => [e.id, e]));
 
@@ -98,20 +181,27 @@ router.get("/attendance/logs", requireAuth, async (req, res): Promise<void> => {
   res.json({ logs, total: countResult?.count ?? 0, page, limit });
 });
 
-router.get("/attendance/today", requireAuth, async (_req, res): Promise<void> => {
+// Today's activity (auth required, filtered by company)
+router.get("/attendance/today", requireAuth, async (req, res): Promise<void> => {
+  const companyId = req.user!.companyId;
+  if (!companyId) {
+    res.status(403).json({ error: "Se requiere contexto de empresa" });
+    return;
+  }
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const rawLogs = await db
     .select()
     .from(attendanceLogsTable)
-    .where(gte(attendanceLogsTable.timestamp, today))
+    .where(and(eq(attendanceLogsTable.companyId, companyId), gte(attendanceLogsTable.timestamp, today)))
     .orderBy(desc(attendanceLogsTable.timestamp))
     .limit(100);
 
-  const employeeIds = [...new Set(rawLogs.map((l) => l.employeeId))];
-  const employees = employeeIds.length > 0
-    ? await db.select().from(employeesTable).where(inArray(employeesTable.id, employeeIds))
+  const empIds = [...new Set(rawLogs.map((l) => l.employeeId))];
+  const employees = empIds.length > 0
+    ? await db.select().from(employeesTable).where(inArray(employeesTable.id, empIds))
     : [];
   const empMap = Object.fromEntries(employees.map((e) => [e.id, e]));
 
@@ -119,24 +209,25 @@ router.get("/attendance/today", requireAuth, async (_req, res): Promise<void> =>
   res.json(logs);
 });
 
+// Employee attendance history (auth required)
 router.get("/attendance/employee/:id", requireAuth, async (req, res): Promise<void> => {
-  const paramsParsed = GetEmployeeAttendanceParams.safeParse(req.params);
-  if (!paramsParsed.success) {
-    res.status(400).json({ error: paramsParsed.error.message });
+  const companyId = req.user!.companyId;
+  const empId = parseInt(req.params.id);
+  if (isNaN(empId)) {
+    res.status(400).json({ error: "ID inválido" });
     return;
   }
 
-  const queryParsed = GetEmployeeAttendanceQueryParams.safeParse(req.query);
-  const queryData = queryParsed.success ? queryParsed.data : {};
-
-  const conditions = [eq(attendanceLogsTable.employeeId, paramsParsed.data.id)];
-  if (queryData.startDate) {
-    const start = new Date(queryData.startDate);
+  const { startDate, endDate } = req.query as Record<string, string>;
+  const conditions: any[] = [eq(attendanceLogsTable.employeeId, empId)];
+  if (companyId) conditions.push(eq(attendanceLogsTable.companyId, companyId));
+  if (startDate) {
+    const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
     conditions.push(gte(attendanceLogsTable.timestamp, start));
   }
-  if (queryData.endDate) {
-    const end = new Date(queryData.endDate);
+  if (endDate) {
+    const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
     conditions.push(lte(attendanceLogsTable.timestamp, end));
   }

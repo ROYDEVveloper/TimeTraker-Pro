@@ -1,7 +1,7 @@
 import { useGetDashboardSummary, useGetAttendanceTrends, useGetTodayActivity } from "@workspace/api-client-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Users, UserCheck, UserX, LogIn, LogOut, Activity } from "lucide-react";
+import { Users, UserCheck, UserX, LogIn, LogOut } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -48,16 +48,15 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {summaryLoading ? (
-            Array.from({ length: 6 }).map((_, i) => (
+            Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="bg-card border border-border rounded-xl p-5 animate-pulse h-24" />
             ))
           ) : (
             <>
               <StatCard icon={Users} label="Total Empleados" value={summary?.totalEmployees ?? 0} color="bg-primary/10 text-primary" />
-              <StatCard icon={Activity} label="Activos Hoy" value={summary?.activeToday ?? 0} color="bg-chart-2/10 text-chart-2" />
-              <StatCard icon={UserCheck} label="Dentro Ahora" value={summary?.checkedInNow ?? 0} color="bg-chart-2/10 text-chart-2" />
+              <StatCard icon={UserCheck} label="Activos Hoy" value={summary?.activeToday ?? 0} color="bg-chart-2/10 text-chart-2" />
               <StatCard icon={LogIn} label="Entradas Hoy" value={summary?.checkInsToday ?? 0} color="bg-primary/10 text-primary" />
               <StatCard icon={LogOut} label="Salidas Hoy" value={summary?.checkOutsToday ?? 0} color="bg-chart-3/10 text-chart-3" />
               <StatCard icon={UserX} label="Ausentes Hoy" value={summary?.absentToday ?? 0} color="bg-destructive/10 text-destructive" />

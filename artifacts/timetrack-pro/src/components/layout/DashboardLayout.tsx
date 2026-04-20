@@ -12,12 +12,13 @@ import {
   Sun,
   Moon,
   Calendar,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const ROLE_LABELS: Record<string, string> = {
+  super_admin: "Super Admin",
   admin: "Administrador",
-  manager: "Gerente",
   employee: "Empleado",
 };
 
@@ -27,10 +28,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
 
   const navigation = [
-    { name: "Panel", href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "employee"] },
-    { name: "Terminal", href: "/terminal", icon: TerminalIcon, roles: ["admin", "manager", "employee"] },
-    { name: "Empleados", href: "/employees", icon: Users, roles: ["admin", "manager"] },
-    { name: "Reportes", href: "/reports", icon: FileText, roles: ["admin", "manager"] },
+    { name: "Empresas", href: "/companies", icon: Building2, roles: ["super_admin"] },
+    { name: "Panel", href: "/dashboard", icon: LayoutDashboard, roles: ["admin"] },
+    { name: "Terminal", href: "/", icon: TerminalIcon, roles: ["admin"] },
+    { name: "Empleados", href: "/employees", icon: Users, roles: ["admin"] },
+    { name: "Reportes", href: "/reports", icon: FileText, roles: ["admin"] },
     { name: "Usuarios", href: "/settings/users", icon: Settings, roles: ["admin"] },
     { name: "Jornada Laboral", href: "/settings/jornada", icon: Calendar, roles: ["admin"] },
   ];
@@ -50,7 +52,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           {filteredNav.map((item) => {
             const Icon = item.icon;
             const isActive =
-              location.startsWith(item.href) && (item.href !== "/" || location === "/");
+              item.href === "/"
+                ? location === "/"
+                : location.startsWith(item.href);
             return (
               <Link
                 key={item.name}

@@ -71,8 +71,8 @@ export default function EmployeeDetail() {
             <h2 className="text-sm font-semibold">Información de Contacto e Identificación</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">ID Nacional</p>
-                <p className="font-mono">{employee.nationalId}</p>
+                <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">N° de Documento</p>
+                <p className="font-mono">{employee.documentNumber}</p>
               </div>
               <div>
                 <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Correo electrónico</p>

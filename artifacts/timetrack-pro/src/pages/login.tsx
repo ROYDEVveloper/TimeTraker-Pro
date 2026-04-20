@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useLogin } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Clock } from "lucide-react";
+import { Loader2, Clock, ArrowLeft } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -21,7 +21,12 @@ export default function Login() {
     try {
       const result = await loginMutation.mutateAsync({ data: { email, password } });
       login(result.token);
-      setLocation("/dashboard");
+      const role = result.user.role;
+      if (role === "super_admin") {
+        setLocation("/companies");
+      } else {
+        setLocation("/dashboard");
+      }
     } catch {
       setError("Correo o contraseña incorrectos. Por favor intente de nuevo.");
     }
@@ -39,7 +44,7 @@ export default function Login() {
               TimeTrack<span className="text-primary">Pro</span>
             </span>
           </div>
-          <p className="text-muted-foreground text-sm">Inicia sesión en tu cuenta</p>
+          <p className="text-muted-foreground text-sm">Panel de Administración</p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-8 shadow-md">
@@ -49,7 +54,7 @@ export default function Login() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@timetrackpro.com"
+                placeholder="admin@empresa.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -88,22 +93,15 @@ export default function Login() {
               )}
             </Button>
           </form>
+        </div>
 
-          <div className="mt-6 pt-5 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center mb-3">Credenciales de demostración</p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="bg-secondary rounded-lg px-3 py-2">
-                <p className="font-medium text-foreground">Administrador</p>
-                <p className="text-muted-foreground">admin@timetrackpro.com</p>
-                <p className="text-muted-foreground">admin123</p>
-              </div>
-              <div className="bg-secondary rounded-lg px-3 py-2">
-                <p className="font-medium text-foreground">Gerente</p>
-                <p className="text-muted-foreground">manager@timetrackpro.com</p>
-                <p className="text-muted-foreground">manager123</p>
-              </div>
-            </div>
-          </div>
+        <div className="mt-4 text-center">
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground text-sm">
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Volver al Terminal
+            </Button>
+          </Link>
         </div>
       </div>
     </div>

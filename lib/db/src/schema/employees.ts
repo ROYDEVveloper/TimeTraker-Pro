@@ -1,10 +1,12 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { companiesTable } from "./companies";
 
 export const employeesTable = pgTable("employees", {
   id: serial("id").primaryKey(),
-  nationalId: text("national_id").notNull().unique(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
+  documentNumber: text("document_number").notNull().unique(),
   name: text("name").notNull(),
   position: text("position").notNull(),
   department: text("department").notNull(),

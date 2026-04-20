@@ -11,16 +11,16 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, Loader2, UserCircle, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
 type EmployeeForm = {
   name: string;
-  nationalId: string;
+  documentNumber: string;
   email: string;
   department: string;
   position: string;
@@ -29,7 +29,7 @@ type EmployeeForm = {
 
 const emptyForm: EmployeeForm = {
   name: "",
-  nationalId: "",
+  documentNumber: "",
   email: "",
   department: "",
   position: "",
@@ -88,12 +88,10 @@ export default function EmployeesList() {
   const [form, setForm] = useState<EmployeeForm>(emptyForm);
   const [isDeleteConfirm, setIsDeleteConfirm] = useState<number | null>(null);
 
-  const statusMap = new Map(
-    statusList?.map((s) => [s.id, s]) ?? []
-  );
+  const statusMap = new Map(statusList?.map((s) => [s.id, s]) ?? []);
 
   const filtered = employees?.filter((e) =>
-    [e.name, e.department, e.position, e.nationalId].some((f) =>
+    [e.name, e.department, e.position, e.documentNumber].some((f) =>
       f?.toLowerCase().includes(search.toLowerCase())
     )
   );
@@ -108,7 +106,7 @@ export default function EmployeesList() {
     setEditingId(emp.id);
     setForm({
       name: emp.name,
-      nationalId: emp.nationalId,
+      documentNumber: emp.documentNumber,
       email: emp.email ?? "",
       department: emp.department,
       position: emp.position,
@@ -184,7 +182,7 @@ export default function EmployeesList() {
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Empleado</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Departamento</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Cargo</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden xl:table-cell">ID Nacional</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden xl:table-cell">N° Documento</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Estado</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tiempo en oficina</th>
                     {isAdmin && <th className="text-right px-4 py-3 font-medium text-muted-foreground">Acciones</th>}
@@ -219,7 +217,7 @@ export default function EmployeesList() {
                           </td>
                           <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{emp.department}</td>
                           <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{emp.position}</td>
-                          <td className="px-4 py-3 font-mono text-xs hidden xl:table-cell">{emp.nationalId}</td>
+                          <td className="px-4 py-3 font-mono text-xs hidden xl:table-cell">{emp.documentNumber}</td>
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLOR[attendanceStatus] ?? ""}`}>
                               {isInside && (
@@ -275,8 +273,8 @@ export default function EmployeesList() {
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="María García" />
               </div>
               <div className="space-y-2">
-                <Label>ID Nacional</Label>
-                <Input value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })} placeholder="12345678" />
+                <Label>N° de Documento</Label>
+                <Input value={form.documentNumber} onChange={(e) => setForm({ ...form, documentNumber: e.target.value })} placeholder="12345678" />
               </div>
             </div>
             <div className="space-y-2">

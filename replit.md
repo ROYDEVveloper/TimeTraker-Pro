@@ -6,11 +6,11 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Project: TimeTrack Pro
 
-A full-stack SaaS attendance control system with:
+A full-stack **multi-tenant SaaS** attendance control system with:
 - **Frontend**: React + Vite + Tailwind CSS (dark/light mode toggle) at `artifacts/timetrack-pro`
 - **Backend**: Node/Express 5 API server at `artifacts/api-server`
-- **Database**: PostgreSQL + Drizzle ORM
-- **Auth**: JWT-based with role-based access control (admin/manager/employee)
+- **Database**: PostgreSQL + Drizzle ORM (multi-tenant with `company_id` FK on all tables)
+- **Auth**: JWT-based with role-based access control (super_admin/admin/employee)
 - **API Client**: Auto-generated hooks via Orval at `lib/api-client-react`
 - **Language**: Full Spanish UI
 
@@ -27,54 +27,94 @@ A full-stack SaaS attendance control system with:
 - **Build**: esbuild (CJS bundle)
 - **Charts**: Recharts
 
-## Features
+## Multi-tenant Architecture
 
-1. **Login** (`/login`) — JWT auth con credenciales de demo en pantalla
-2. **Panel de Control** (`/dashboard`) — Tarjetas de estadísticas + gráfico de barras 7 días + actividad en tiempo real (polling 30s)
-3. **Terminal** (`/terminal`) — Teclado numérico + soporte teclado físico (Enter, Esc, Backspace, 0-9), sidebar completo
-4. **Empleados** (`/employees`) — CRUD completo + columna de estado en tiempo real (Dentro/Fuera/Ausente/Día libre) + temporizador de tiempo en oficina (actualiza cada segundo)
-5. **Detalle del Empleado** (`/employees/:id`) — Perfil + historial de asistencia
-6. **Reportes** (`/reports`) — Tabla filtrable de asistencia con exportación CSV
-7. **Gestión de Usuarios** (`/settings/users`) — CRUD de usuarios (solo admin)
-8. **Jornada Laboral** (`/settings/jornada`) — Configurar horario, días laborales y tolerancia de tardanza (solo admin)
-9. **Dark/Light mode toggle** — Persiste en localStorage, botón Sol/Luna en sidebar
+- Every table (users, employees, attendanceLogs, workSchedule) has `companyId` FK
+- `super_admin` users have `companyId = null` and manage all companies
+- `admin` users are scoped to their company — all API queries auto-filter by `companyId` from JWT
+- `employees.documentNumber` is the globally unique field used for terminal punch (no auth required)
 
-## API Endpoints (new since initial setup)
+## Routes & Pages
 
-- `GET /api/employees/status` — Estado actual de todos los empleados (inside/outside/absent/day_off)
-- `GET /api/work-schedule` — Obtener configuración de jornada laboral
-- `PUT /api/work-schedule` — Actualizar configuración de jornada laboral
+| Route | Access | Description |
+|-------|--------|-------------|
+| `/` | **Public** | Terminal kiosk — clock + keypad + todaySummary |
+| `/login` | Public | Admin login, redirects based on role |
+| `/companies` | super_admin | CRUD for all registered companies |
+| `/dashboard` | admin | Stats cards + 7-day chart + live activity feed |
+| `/employees` | admin | CRUD + real-time status (Dentro/Fuera/Ausente/Día libre) + live timer |
+| `/employees/:id` | admin | Employee profile + attendance history |
+| `/reports` | admin | Filterable attendance logs + CSV export |
+| `/settings/users` | admin | User CRUD |
+| `/settings/jornada` | admin | Work schedule config |
+
+## API Endpoints
+
+### Public (no auth)
+- `POST /api/attendance/punch` — Record punch by `documentNumber`, returns `todaySummary`
+- `GET /api/attendance/today-summary/:document` — Get today summary for employee
+
+### Auth required (filtered by companyId in JWT)
+- `POST /api/auth/login` — Login (returns token with companyId)
+- `GET /api/auth/me` — Current user
+- `GET /api/companies` — List companies (super_admin only)
+- `POST /api/companies` — Create company with optional admin (super_admin only)
+- `PATCH /api/companies/:id` — Update company (super_admin only)
+- `DELETE /api/companies/:id` — Delete company (super_admin only)
+- `GET /api/employees` — List employees for company
+- `POST /api/employees` — Create employee
+- `GET /api/employees/status` — Real-time attendance status
+- `GET /api/employees/:id` — Get employee
+- `PATCH /api/employees/:id` — Update employee
+- `DELETE /api/employees/:id` — Delete employee
+- `GET /api/attendance/logs` — Paginated logs
+- `GET /api/attendance/today` — Today's activity feed
+- `GET /api/attendance/employee/:id` — Employee history
+- `GET /api/dashboard/summary` — Dashboard metrics
+- `GET /api/dashboard/attendance-trends` — 7-day chart data
+- `GET /api/users`, `POST /api/users`, `DELETE /api/users/:id`
+- `GET /api/work-schedule`, `PUT /api/work-schedule`
 
 ## Roles
 
-- **admin** — Acceso completo (incluyendo /settings/users y /settings/jornada)
-- **manager** — Panel, empleados, reportes
-- **employee** — Solo panel y terminal
+- **super_admin** — Manages companies (no companyId), redirects to /companies after login
+- **admin** — Full access within their company, redirects to /dashboard after login
+- **employee** — No panel access (for future use)
 
-## Seeded Credentials
+## Seeded Credentials (Demo)
 
-- `admin@timetrackpro.com` / `admin123`
-- `manager@timetrackpro.com` / `manager123`
-- 7 empleados de muestra con datos de asistencia de 7 días
+- `super@timetrack.com` / `super123` — Super Administrador
+- `admin@empresa-demo.com` / `admin123` — Admin de Empresa Demo S.A.
+- 7 employees with document numbers: 12345678, 23456789, 34567890, 45678901, 56789012, 67890123, 78901234
+
+## DB Schema
+
+Tables: `companies`, `users`, `employees`, `attendanceLogs`, `workSchedule`
+- All tables (except `companies`) have `companyId` FK
+- `employees.documentNumber` is globally unique (cedulas)
+- `users.role` enum: `super_admin | admin | employee`
+- `attendanceLogs.type` enum: `check_in | check_out`
+- `employees.status` enum: `active | inactive`
 
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-  - **IMPORTANT**: After codegen, always rewrite `lib/api-zod/src/index.ts` to `export * from "./generated/api";`
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
+- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks from OpenAPI spec
+  - **IMPORTANT**: Codegen script auto-fixes `lib/api-zod/src/index.ts` (only exports `./generated/api`)
+  - After codegen, lib/api-zod/src/index.ts must be: `export * from "./generated/api";`
+- `pnpm --filter @workspace/db run push` — push DB schema changes
+- Re-seed: `pnpm --filter @workspace/api-server exec node_modules/.bin/esbuild src/seed.ts --bundle --platform=node --format=cjs --outfile=dist/seed.cjs && node artifacts/api-server/dist/seed.cjs`
 
 ## Critical Notes
 
 - Vite frontend proxies `/api/*` to `localhost:8080` (the API server)
-- `setAuthTokenGetter` is imported from `@workspace/api-client-react` (main export), NOT from a subpath
-- After orval codegen, `lib/api-zod/src/index.ts` must only export `./generated/api` (not `./generated/types`)
+- `setAuthTokenGetter` is imported from `@workspace/api-client-react` (main export)
+- `logout()` redirects to `/` (Terminal), not `/login`
 - bcrypt hashing is done via `api-server` package only (bcryptjs not installed at root)
-- `useListEmployees`, `useListAttendanceLogs`, `useListUsers` are the correct hook names (not useGet*)
-- ThemeContext lives at `artifacts/timetrack-pro/src/contexts/ThemeContext.tsx`
 - Employee attendance status values: "inside" | "outside" | "absent" | "day_off"
 - Work days use abbreviations: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun"
+- Terminal is completely public — no auth, employees punch using `documentNumber`
+- `super_admin` has no `companyId` — gets null from JWT
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

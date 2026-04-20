@@ -12,7 +12,7 @@ export function ProtectedRoute({ component: Component, allowedRoles, path }: Pro
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return null; // Handled by AuthProvider
+    return null;
   }
 
   if (!user) {
@@ -20,6 +20,10 @@ export function ProtectedRoute({ component: Component, allowedRoles, path }: Pro
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
+    // Redirect based on role
+    if (user.role === "super_admin") {
+      return <Redirect to="/companies" />;
+    }
     return <Redirect to="/dashboard" />;
   }
 

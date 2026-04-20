@@ -19,11 +19,16 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
 
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-    res.status(401).json({ error: "Invalid email or password" });
+    res.status(401).json({ error: "Correo o contraseña incorrectos" });
     return;
   }
 
-  const token = signToken({ userId: user.id, role: user.role, email: user.email });
+  const token = signToken({
+    userId: user.id,
+    role: user.role,
+    email: user.email,
+    companyId: user.companyId ?? null,
+  });
 
   res.json({
     token,
@@ -32,6 +37,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       email: user.email,
       name: user.name,
       role: user.role,
+      companyId: user.companyId ?? null,
       createdAt: user.createdAt,
     },
   });
@@ -40,7 +46,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId));
   if (!user) {
-    res.status(401).json({ error: "User not found" });
+    res.status(401).json({ error: "Usuario no encontrado" });
     return;
   }
   res.json({
@@ -48,12 +54,13 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
     email: user.email,
     name: user.name,
     role: user.role,
+    companyId: user.companyId ?? null,
     createdAt: user.createdAt,
   });
 });
 
 router.post("/auth/logout", requireAuth, async (_req, res): Promise<void> => {
-  res.json({ message: "Logged out successfully" });
+  res.json({ message: "Sesión cerrada correctamente" });
 });
 
 export default router;
