@@ -52,11 +52,11 @@ export default function Login() {
         <div className="bg-card border border-border rounded-xl p-8 shadow-md">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">Correo electrónico</Label>
+              <Label htmlFor="email" className="text-sm font-medium">Número de cédula o correo institucional</Label>
               <Input
                 id="email"
-                type="email"
-                placeholder="admin@empresa.com"
+                type="text"
+                placeholder="Número de cédula o correo institucional"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
