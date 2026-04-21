@@ -322,7 +322,63 @@ export interface AuditLog {
   resourceId?: string | null;
   details?: string | null;
   ipAddress?: string | null;
+  userAgent?: string | null;
+  device?: string | null;
   timestamp: string;
+}
+
+export type EmployeeProfileStatus =
+  (typeof EmployeeProfileStatus)[keyof typeof EmployeeProfileStatus];
+
+export const EmployeeProfileStatus = {
+  active: "active",
+  inactive: "inactive",
+} as const;
+
+export type EmployeeProfileAttendanceStatus =
+  (typeof EmployeeProfileAttendanceStatus)[keyof typeof EmployeeProfileAttendanceStatus];
+
+export const EmployeeProfileAttendanceStatus = {
+  inside: "inside",
+  outside: "outside",
+  absent: "absent",
+  day_off: "day_off",
+} as const;
+
+export type EmployeeProfileRecentLogsItemType =
+  (typeof EmployeeProfileRecentLogsItemType)[keyof typeof EmployeeProfileRecentLogsItemType];
+
+export const EmployeeProfileRecentLogsItemType = {
+  check_in: "check_in",
+  check_out: "check_out",
+} as const;
+
+export type EmployeeProfileRecentLogsItem = {
+  id: number;
+  type: EmployeeProfileRecentLogsItemType;
+  timestamp: string;
+  notes?: string | null;
+};
+
+export interface EmployeeProfile {
+  id: number;
+  companyId: number;
+  companyName?: string | null;
+  documentNumber: string;
+  name: string;
+  position: string;
+  department: string;
+  status: EmployeeProfileStatus;
+  email?: string | null;
+  phone?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  attendanceStatus: EmployeeProfileAttendanceStatus;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  workedHoursToday: number;
+  extraHoursToday: number;
+  recentLogs: EmployeeProfileRecentLogsItem[];
 }
 
 export interface AuditLogsPage {

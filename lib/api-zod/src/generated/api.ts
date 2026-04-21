@@ -168,6 +168,41 @@ export const GetEmployeesStatusResponse = zod.array(
 );
 
 /**
+ * @summary Get rich employee profile by document number
+ */
+export const GetEmployeeProfileParams = zod.object({
+  document: zod.coerce.string(),
+});
+
+export const GetEmployeeProfileResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  companyName: zod.string().nullish(),
+  documentNumber: zod.string(),
+  name: zod.string(),
+  position: zod.string(),
+  department: zod.string(),
+  status: zod.enum(["active", "inactive"]),
+  email: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  createdAt: zod.string().optional(),
+  updatedAt: zod.string().optional(),
+  attendanceStatus: zod.enum(["inside", "outside", "absent", "day_off"]),
+  checkInTime: zod.string().nullish(),
+  checkOutTime: zod.string().nullish(),
+  workedHoursToday: zod.number(),
+  extraHoursToday: zod.number(),
+  recentLogs: zod.array(
+    zod.object({
+      id: zod.number(),
+      type: zod.enum(["check_in", "check_out"]),
+      timestamp: zod.string(),
+      notes: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
  * @summary Get employee by ID
  */
 export const GetEmployeeParams = zod.object({
@@ -552,6 +587,8 @@ export const ListAuditLogsResponse = zod.object({
       resourceId: zod.string().nullish(),
       details: zod.string().nullish(),
       ipAddress: zod.string().nullish(),
+      userAgent: zod.string().nullish(),
+      device: zod.string().nullish(),
       timestamp: zod.string(),
     }),
   ),

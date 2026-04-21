@@ -12,6 +12,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Users, UserCheck, UserX, LogIn, LogOut, Building2, Activity } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { AcademicTools } from "@/components/AcademicTools";
 
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number | string; color: string }) {
   return (
@@ -127,6 +128,8 @@ function SuperAdminDashboard() {
             )}
           </div>
         </div>
+
+        <AcademicTools />
       </div>
     </DashboardLayout>
   );

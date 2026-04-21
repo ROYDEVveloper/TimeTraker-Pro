@@ -231,6 +231,39 @@ paths:
                 items:
                   $ref: "#/components/schemas/EmployeeWithStatus"
 
+  /employees/profile/{document}:
+    get:
+      operationId: getEmployeeProfile
+      tags: [employees]
+      summary: Get rich employee profile by document number
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: document
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Employee profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfile"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /employees/{id}:
     get:
       operationId: getEmployee
@@ -1190,8 +1223,76 @@ components:
         ipAddress:
           type: string
           nullable: true
+        userAgent:
+          type: string
+          nullable: true
+        device:
+          type: string
+          nullable: true
         timestamp:
           type: string
+
+    EmployeeProfile:
+      type: object
+      required: [id, companyId, documentNumber, name, position, department, status, attendanceStatus, workedHoursToday, extraHoursToday, recentLogs]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        companyName:
+          type: string
+          nullable: true
+        documentNumber:
+          type: string
+        name:
+          type: string
+        position:
+          type: string
+        department:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive]
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        attendanceStatus:
+          type: string
+          enum: [inside, outside, absent, day_off]
+        checkInTime:
+          type: string
+          nullable: true
+        checkOutTime:
+          type: string
+          nullable: true
+        workedHoursToday:
+          type: number
+        extraHoursToday:
+          type: number
+        recentLogs:
+          type: array
+          items:
+            type: object
+            required: [id, type, timestamp]
+            properties:
+              id:
+                type: integer
+              type:
+                type: string
+                enum: [check_in, check_out]
+              timestamp:
+                type: string
+              notes:
+                type: string
+                nullable: true
 
     AuditLogsPage:
       type: object

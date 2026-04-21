@@ -86,6 +86,7 @@ export default function AuditLogs() {
                     <th className="text-left px-4 py-3 font-medium">Usuario</th>
                     <th className="text-left px-4 py-3 font-medium">Detalle</th>
                     <th className="text-left px-4 py-3 font-medium">IP</th>
+                    <th className="text-left px-4 py-3 font-medium">Dispositivo</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -104,6 +105,9 @@ export default function AuditLogs() {
                         {log.details ?? <span className="opacity-50">—</span>}
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{log.ipAddress ?? "—"}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground" title={log.userAgent ?? ""}>
+                        {log.device ?? "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

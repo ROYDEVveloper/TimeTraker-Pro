@@ -31,6 +31,7 @@ import type {
   CreateUserBody,
   DashboardSummary,
   Employee,
+  EmployeeProfile,
   EmployeeWithStatus,
   ErrorResponse,
   GetEmployeeAttendanceParams,
@@ -947,6 +948,95 @@ export function useGetEmployeesStatus<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetEmployeesStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get rich employee profile by document number
+ */
+export const getGetEmployeeProfileUrl = (document: string) => {
+  return `/api/employees/profile/${document}`;
+};
+
+export const getEmployeeProfile = async (
+  document: string,
+  options?: RequestInit,
+): Promise<EmployeeProfile> => {
+  return customFetch<EmployeeProfile>(getGetEmployeeProfileUrl(document), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetEmployeeProfileQueryKey = (document: string) => {
+  return [`/api/employees/profile/${document}`] as const;
+};
+
+export const getGetEmployeeProfileQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEmployeeProfile>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  document: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEmployeeProfile>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetEmployeeProfileQueryKey(document);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getEmployeeProfile>>
+  > = ({ signal }) =>
+    getEmployeeProfile(document, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!document,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEmployeeProfile>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEmployeeProfileQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEmployeeProfile>>
+>;
+export type GetEmployeeProfileQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get rich employee profile by document number
+ */
+
+export function useGetEmployeeProfile<
+  TData = Awaited<ReturnType<typeof getEmployeeProfile>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  document: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEmployeeProfile>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEmployeeProfileQueryOptions(document, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

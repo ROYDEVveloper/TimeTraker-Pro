@@ -121,6 +121,116 @@ router.put("/employees/:id/pin", requireAuth, requireRole("admin"), async (req, 
   res.json(employee);
 });
 
+router.get("/employees/profile/:document", requireAuth, async (req, res): Promise<void> => {
+  const documentNumber = String(req.params.document);
+  const user = req.user!;
+
+  const [employee] = await db
+    .select()
+    .from(employeesTable)
+    .where(eq(employeesTable.documentNumber, documentNumber));
+
+  if (!employee) {
+    res.status(404).json({ error: "Empleado no encontrado" });
+    return;
+  }
+
+  // Authorization
+  if (user.role === "admin") {
+    if (employee.companyId !== user.companyId) {
+      res.status(403).json({ error: "Sin acceso a este empleado" });
+      return;
+    }
+  } else if (user.role === "employee") {
+    if (!user.email || !employee.email || employee.email.toLowerCase() !== user.email.toLowerCase()) {
+      res.status(403).json({ error: "Solo puede ver su propio perfil" });
+      return;
+    }
+  }
+  // super_admin: allowed
+
+  // Get company name
+  const { companiesTable } = await import("@workspace/db");
+  const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, employee.companyId));
+
+  // Work schedule
+  const [schedule] = await db.select().from(workScheduleTable).where(eq(workScheduleTable.companyId, employee.companyId));
+  const workDays: string[] = schedule?.workDays ?? ["mon", "tue", "wed", "thu", "fri"];
+  const todayDayStr = DAY_MAP[new Date().getDay()];
+  const isWorkDay = workDays.includes(todayDayStr);
+
+  // Today range
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOf7DaysAgo = new Date(startOfToday);
+  startOf7DaysAgo.setDate(startOf7DaysAgo.getDate() - 6);
+
+  const recentLogs = await db
+    .select()
+    .from(attendanceLogsTable)
+    .where(and(eq(attendanceLogsTable.employeeId, employee.id), gte(attendanceLogsTable.timestamp, startOf7DaysAgo)));
+
+  const todayLogs = recentLogs
+    .filter((l) => new Date(l.timestamp) >= startOfToday)
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  const checkInLog = todayLogs.find((l) => l.type === "check_in");
+  const checkOutLog = [...todayLogs].reverse().find((l) => l.type === "check_out");
+  const lastLog = todayLogs[todayLogs.length - 1];
+
+  let attendanceStatus: "inside" | "outside" | "absent" | "day_off";
+  if (!isWorkDay) attendanceStatus = "day_off";
+  else if (!lastLog) attendanceStatus = "absent";
+  else if (lastLog.type === "check_in") attendanceStatus = "inside";
+  else attendanceStatus = "outside";
+
+  // Worked hours today
+  let workedHoursToday = 0;
+  if (checkInLog) {
+    const end = checkOutLog ? new Date(checkOutLog.timestamp).getTime() : Date.now();
+    workedHoursToday = Math.max(0, (end - new Date(checkInLog.timestamp).getTime()) / 3600000);
+  }
+
+  // Extra hours: anything beyond schedule duration
+  let extraHoursToday = 0;
+  if (schedule?.startTime && schedule?.endTime) {
+    const [sh, sm] = schedule.startTime.split(":").map(Number);
+    const [eh, em] = schedule.endTime.split(":").map(Number);
+    const scheduledHours = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+    if (workedHoursToday > scheduledHours) extraHoursToday = workedHoursToday - scheduledHours;
+  }
+
+  const sortedRecent = [...recentLogs].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  res.json({
+    id: employee.id,
+    companyId: employee.companyId,
+    companyName: company?.name ?? null,
+    documentNumber: employee.documentNumber,
+    name: employee.name,
+    position: employee.position,
+    department: employee.department,
+    status: employee.status,
+    email: employee.email,
+    phone: employee.phone,
+    createdAt: employee.createdAt,
+    updatedAt: employee.updatedAt,
+    attendanceStatus,
+    checkInTime: checkInLog?.timestamp ?? null,
+    checkOutTime: checkOutLog?.timestamp ?? null,
+    workedHoursToday: Number(workedHoursToday.toFixed(2)),
+    extraHoursToday: Number(extraHoursToday.toFixed(2)),
+    recentLogs: sortedRecent.map((l) => ({
+      id: l.id,
+      type: l.type,
+      timestamp: l.timestamp,
+      notes: l.notes,
+    })),
+  });
+});
+
 router.get("/employees/status", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const companyId = req.user!.companyId;
   if (!companyId) {
