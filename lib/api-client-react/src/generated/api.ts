@@ -21,6 +21,7 @@ import type {
   AttendanceLogWithEmployee,
   AttendanceLogsResponse,
   AttendanceTrendDay,
+  AuditLogsPage,
   AuthResponse,
   Company,
   CompanyWithStats,
@@ -34,17 +35,22 @@ import type {
   GetEmployeeAttendanceParams,
   HealthStatus,
   ListAttendanceLogsParams,
+  ListAuditLogsParams,
   ListEmployeesParams,
   LoginBody,
   Logout200,
   PunchBody,
+  PunchFailureResponse,
   PunchResponse,
+  SetEmployeePinBody,
   TodaySummary,
   UpdateCompanyBody,
   UpdateEmployeeBody,
   UpdateWorkScheduleBody,
   UserProfile,
   UserSummary,
+  VerifyIdentityBody,
+  VerifyIdentityResponse,
   WorkSchedule,
 } from "./api.schemas";
 
@@ -1206,7 +1212,93 @@ export const useDeleteEmployee = <
 };
 
 /**
- * @summary Record attendance punch (public)
+ * @summary Step 1 — verify employee exists and return required second factor
+ */
+export const getVerifyIdentityUrl = () => {
+  return `/api/attendance/verify-identity`;
+};
+
+export const verifyIdentity = async (
+  verifyIdentityBody: VerifyIdentityBody,
+  options?: RequestInit,
+): Promise<VerifyIdentityResponse> => {
+  return customFetch<VerifyIdentityResponse>(getVerifyIdentityUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(verifyIdentityBody),
+  });
+};
+
+export const getVerifyIdentityMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyIdentity>>,
+    TError,
+    { data: BodyType<VerifyIdentityBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifyIdentity>>,
+  TError,
+  { data: BodyType<VerifyIdentityBody> },
+  TContext
+> => {
+  const mutationKey = ["verifyIdentity"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyIdentity>>,
+    { data: BodyType<VerifyIdentityBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return verifyIdentity(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifyIdentityMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifyIdentity>>
+>;
+export type VerifyIdentityMutationBody = BodyType<VerifyIdentityBody>;
+export type VerifyIdentityMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Step 1 — verify employee exists and return required second factor
+ */
+export const useVerifyIdentity = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyIdentity>>,
+    TError,
+    { data: BodyType<VerifyIdentityBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifyIdentity>>,
+  TError,
+  { data: BodyType<VerifyIdentityBody> },
+  TContext
+> => {
+  return useMutation(getVerifyIdentityMutationOptions(options));
+};
+
+/**
+ * @summary Step 2 — record attendance punch with second factor (public)
  */
 export const getPunchUrl = () => {
   return `/api/attendance/punch`;
@@ -1225,7 +1317,7 @@ export const punch = async (
 };
 
 export const getPunchMutationOptions = <
-  TError = ErrorType<ErrorResponse>,
+  TError = ErrorType<PunchFailureResponse | ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -1266,13 +1358,15 @@ export type PunchMutationResult = NonNullable<
   Awaited<ReturnType<typeof punch>>
 >;
 export type PunchMutationBody = BodyType<PunchBody>;
-export type PunchMutationError = ErrorType<ErrorResponse>;
+export type PunchMutationError = ErrorType<
+  PunchFailureResponse | ErrorResponse
+>;
 
 /**
- * @summary Record attendance punch (public)
+ * @summary Step 2 — record attendance punch with second factor (public)
  */
 export const usePunch = <
-  TError = ErrorType<ErrorResponse>,
+  TError = ErrorType<PunchFailureResponse | ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -2214,4 +2308,185 @@ export const useUpdateWorkSchedule = <
   TContext
 > => {
   return useMutation(getUpdateWorkScheduleMutationOptions(options));
+};
+
+/**
+ * @summary List audit log entries
+ */
+export const getListAuditLogsUrl = (params?: ListAuditLogsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/audit/logs?${stringifiedParams}`
+    : `/api/audit/logs`;
+};
+
+export const listAuditLogs = async (
+  params?: ListAuditLogsParams,
+  options?: RequestInit,
+): Promise<AuditLogsPage> => {
+  return customFetch<AuditLogsPage>(getListAuditLogsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAuditLogsQueryKey = (params?: ListAuditLogsParams) => {
+  return [`/api/audit/logs`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAuditLogsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAuditLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAuditLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAuditLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAuditLogsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAuditLogs>>> = ({
+    signal,
+  }) => listAuditLogs(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAuditLogs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAuditLogsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAuditLogs>>
+>;
+export type ListAuditLogsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List audit log entries
+ */
+
+export function useListAuditLogs<
+  TData = Awaited<ReturnType<typeof listAuditLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAuditLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAuditLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAuditLogsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Set or update an employee's PIN (4 digits)
+ */
+export const getSetEmployeePinUrl = (id: number) => {
+  return `/api/employees/${id}/pin`;
+};
+
+export const setEmployeePin = async (
+  id: number,
+  setEmployeePinBody: SetEmployeePinBody,
+  options?: RequestInit,
+): Promise<Employee> => {
+  return customFetch<Employee>(getSetEmployeePinUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setEmployeePinBody),
+  });
+};
+
+export const getSetEmployeePinMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setEmployeePin>>,
+    TError,
+    { id: number; data: BodyType<SetEmployeePinBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setEmployeePin>>,
+  TError,
+  { id: number; data: BodyType<SetEmployeePinBody> },
+  TContext
+> => {
+  const mutationKey = ["setEmployeePin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setEmployeePin>>,
+    { id: number; data: BodyType<SetEmployeePinBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return setEmployeePin(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetEmployeePinMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setEmployeePin>>
+>;
+export type SetEmployeePinMutationBody = BodyType<SetEmployeePinBody>;
+export type SetEmployeePinMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set or update an employee's PIN (4 digits)
+ */
+export const useSetEmployeePin = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setEmployeePin>>,
+    TError,
+    { id: number; data: BodyType<SetEmployeePinBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setEmployeePin>>,
+  TError,
+  { id: number; data: BodyType<SetEmployeePinBody> },
+  TContext
+> => {
+  return useMutation(getSetEmployeePinMutationOptions(options));
 };

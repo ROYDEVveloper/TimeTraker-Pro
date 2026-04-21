@@ -14,6 +14,9 @@ import {
   Calendar,
   Building2,
   Menu,
+  ShieldCheck,
+  ScrollText,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -30,16 +33,19 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const [location] = useLocation();
 
   const navigation = [
-    { name: "Empresas", href: "/companies", icon: Building2, roles: ["super_admin"] },
-    { name: "Panel", href: "/dashboard", icon: LayoutDashboard, roles: ["admin"] },
-    { name: "Terminal", href: "/", icon: TerminalIcon, roles: ["admin"] },
-    { name: "Empleados", href: "/employees", icon: Users, roles: ["admin"] },
-    { name: "Reportes", href: "/reports", icon: FileText, roles: ["admin"] },
-    { name: "Usuarios", href: "/settings/users", icon: Settings, roles: ["admin"] },
-    { name: "Jornada Laboral", href: "/settings/jornada", icon: Calendar, roles: ["admin"] },
+    { name: "Empresas", href: "/app/companies", icon: Building2, roles: ["super_admin"] },
+    { name: "Panel", href: "/app/dashboard", icon: LayoutDashboard, roles: ["admin", "super_admin"] },
+    { name: "Empleados", href: "/app/employees", icon: Users, roles: ["admin"] },
+    { name: "Reportes", href: "/app/reports", icon: FileText, roles: ["admin"] },
+    { name: "Usuarios", href: "/app/users", icon: Settings, roles: ["admin"] },
+    { name: "Jornada Laboral", href: "/app/workshift", icon: Calendar, roles: ["admin"] },
+    { name: "Roles y Permisos", href: "/app/settings/roles", icon: ShieldCheck, roles: ["admin", "super_admin"] },
+    { name: "Registro de Auditoría", href: "/app/settings/audit", icon: ScrollText, roles: ["admin", "super_admin"] },
   ];
 
   const filteredNav = navigation.filter((item) => user && item.roles.includes(user.role));
+
+  const terminalUrl = `${import.meta.env.BASE_URL}terminal`;
 
   return (
     <div className="h-full flex flex-col bg-card">
@@ -52,10 +58,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         {filteredNav.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            item.href === "/"
-              ? location === "/"
-              : location.startsWith(item.href);
+          const isActive = location === item.href || location.startsWith(item.href + "/");
           return (
             <Link
               key={item.name}
@@ -72,6 +75,20 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </Link>
           );
         })}
+
+        {user && (user.role === "admin" || user.role === "super_admin") && (
+          <a
+            href={terminalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onNavigate}
+            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <TerminalIcon className="w-4 h-4" />
+            <span className="flex-1">Abrir Terminal</span>
+            <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+          </a>
+        )}
       </nav>
 
       <div className="p-4 border-t border-border space-y-3">
@@ -116,7 +133,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
+    <div className="flex h-screen w-screen max-w-full overflow-hidden bg-background text-foreground">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-64 border-r border-border flex-shrink-0">
         <SidebarContent />
@@ -129,7 +146,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         </SheetContent>
       </Sheet>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile/Tablet top bar */}
         <header className="lg:hidden h-14 border-b border-border bg-card flex items-center px-3 gap-2 flex-shrink-0">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -144,7 +161,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           </h1>
         </header>
 
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="mx-auto w-full max-w-[1600px]">{children}</div>
+        </main>
       </div>
     </div>
   );

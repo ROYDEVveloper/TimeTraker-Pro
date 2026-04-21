@@ -180,6 +180,24 @@ export interface UpdateEmployeeBody {
 
 export interface PunchBody {
   documentNumber: string;
+  /** 4-digit personal PIN (preferred second factor) */
+  pin?: string;
+  /** Last 4 digits of phone (alternative second factor) */
+  phoneLast4?: string;
+}
+
+export interface VerifyIdentityResponse {
+  employeeId: number;
+  employeeName: string;
+  department?: string;
+  requiresPin: boolean;
+  requiresPhoneLast4: boolean;
+}
+
+export interface PunchFailureResponse {
+  error: string;
+  attemptsRemaining?: number;
+  lockedUntil?: string | null;
 }
 
 export interface TodaySummaryData {
@@ -278,6 +296,26 @@ export interface UpdateWorkScheduleBody {
   lateToleranceMinutes?: number;
 }
 
+export interface AuditLog {
+  id: number;
+  companyId?: number | null;
+  userId?: number | null;
+  userEmail?: string | null;
+  action: string;
+  resource?: string | null;
+  resourceId?: string | null;
+  details?: string | null;
+  ipAddress?: string | null;
+  timestamp: string;
+}
+
+export interface AuditLogsPage {
+  logs: AuditLog[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export type Logout200 = {
   message?: string;
 };
@@ -295,6 +333,10 @@ export const ListEmployeesStatus = {
   inactive: "inactive",
 } as const;
 
+export type VerifyIdentityBody = {
+  documentNumber: string;
+};
+
 export type ListAttendanceLogsParams = {
   employeeId?: number;
   startDate?: string;
@@ -306,4 +348,15 @@ export type ListAttendanceLogsParams = {
 export type GetEmployeeAttendanceParams = {
   startDate?: string;
   endDate?: string;
+};
+
+export type ListAuditLogsParams = {
+  page?: number;
+  limit?: number;
+  action?: string;
+};
+
+export type SetEmployeePinBody = {
+  /** 4-digit numeric PIN */
+  pin: string;
 };

@@ -227,10 +227,33 @@ export const DeleteEmployeeParams = zod.object({
 });
 
 /**
- * @summary Record attendance punch (public)
+ * @summary Step 1 — verify employee exists and return required second factor
+ */
+export const VerifyIdentityBody = zod.object({
+  documentNumber: zod.string(),
+});
+
+export const VerifyIdentityResponse = zod.object({
+  employeeId: zod.number(),
+  employeeName: zod.string(),
+  department: zod.string().optional(),
+  requiresPin: zod.boolean(),
+  requiresPhoneLast4: zod.boolean(),
+});
+
+/**
+ * @summary Step 2 — record attendance punch with second factor (public)
  */
 export const PunchBody = zod.object({
   documentNumber: zod.string(),
+  pin: zod
+    .string()
+    .optional()
+    .describe("4-digit personal PIN (preferred second factor)"),
+  phoneLast4: zod
+    .string()
+    .optional()
+    .describe("Last 4 digits of phone (alternative second factor)"),
 });
 
 export const PunchResponse = zod.object({
@@ -471,4 +494,58 @@ export const UpdateWorkScheduleResponse = zod.object({
   endTime: zod.string(),
   workDays: zod.array(zod.string()),
   lateToleranceMinutes: zod.number(),
+});
+
+/**
+ * @summary List audit log entries
+ */
+export const ListAuditLogsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
+  action: zod.coerce.string().optional(),
+});
+
+export const ListAuditLogsResponse = zod.object({
+  logs: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number().nullish(),
+      userId: zod.number().nullish(),
+      userEmail: zod.string().nullish(),
+      action: zod.string(),
+      resource: zod.string().nullish(),
+      resourceId: zod.string().nullish(),
+      details: zod.string().nullish(),
+      ipAddress: zod.string().nullish(),
+      timestamp: zod.string(),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  limit: zod.number(),
+});
+
+/**
+ * @summary Set or update an employee's PIN (4 digits)
+ */
+export const SetEmployeePinParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SetEmployeePinBody = zod.object({
+  pin: zod.string().describe("4-digit numeric PIN"),
+});
+
+export const SetEmployeePinResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  documentNumber: zod.string(),
+  name: zod.string(),
+  position: zod.string(),
+  department: zod.string(),
+  status: zod.enum(["active", "inactive"]),
+  email: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  createdAt: zod.string().optional(),
+  updatedAt: zod.string().optional(),
 });

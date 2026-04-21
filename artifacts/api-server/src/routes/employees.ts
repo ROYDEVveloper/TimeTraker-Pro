@@ -1,7 +1,9 @@
 import { Router, type IRouter } from "express";
+import bcrypt from "bcryptjs";
 import { db, employeesTable, attendanceLogsTable, workScheduleTable } from "@workspace/db";
 import { eq, ilike, and, or, gte, inArray } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middlewares/auth";
+import { audit } from "../lib/audit";
 
 const DAY_MAP: Record<number, string> = {
   0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat",
@@ -70,7 +72,53 @@ router.post("/employees", requireAuth, requireRole("admin"), async (req, res): P
     .values({ companyId, documentNumber, name, position, department, email, phone, status: status ?? "active" })
     .returning();
 
+  await audit(req, {
+    action: "create_employee",
+    resource: "employee",
+    resourceId: employee.id,
+    details: `${employee.name} (${employee.documentNumber})`,
+  });
+
   res.status(201).json(employee);
+});
+
+router.put("/employees/:id/pin", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const companyId = req.user!.companyId;
+  if (!companyId) {
+    res.status(403).json({ error: "Se requiere contexto de empresa" });
+    return;
+  }
+  const id = parseInt(req.params.id);
+  const { pin } = req.body ?? {};
+  if (isNaN(id)) {
+    res.status(400).json({ error: "ID inválido" });
+    return;
+  }
+  if (!pin || typeof pin !== "string" || !/^\d{4}$/.test(pin)) {
+    res.status(400).json({ error: "El PIN debe tener exactamente 4 dígitos numéricos" });
+    return;
+  }
+
+  const pinHash = await bcrypt.hash(pin, 10);
+  const [employee] = await db
+    .update(employeesTable)
+    .set({ pinHash, updatedAt: new Date() })
+    .where(and(eq(employeesTable.id, id), eq(employeesTable.companyId, companyId)))
+    .returning();
+
+  if (!employee) {
+    res.status(404).json({ error: "Empleado no encontrado" });
+    return;
+  }
+
+  await audit(req, {
+    action: "set_employee_pin",
+    resource: "employee",
+    resourceId: employee.id,
+    details: `PIN actualizado para ${employee.name}`,
+  });
+
+  res.json(employee);
 });
 
 router.get("/employees/status", requireAuth, async (req, res): Promise<void> => {

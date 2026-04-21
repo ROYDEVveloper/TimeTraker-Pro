@@ -23,9 +23,9 @@ export default function Login() {
       login(result.token);
       const role = result.user.role;
       if (role === "super_admin") {
-        setLocation("/companies");
+        setLocation("/app/companies");
       } else {
-        setLocation("/dashboard");
+        setLocation("/app/dashboard");
       }
     } catch {
       setError("Correo o contraseña incorrectos. Por favor intente de nuevo.");

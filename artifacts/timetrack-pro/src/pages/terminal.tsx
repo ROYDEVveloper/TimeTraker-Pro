@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
-import { usePunch } from "@workspace/api-client-react";
+import { usePunch, useVerifyIdentity } from "@workspace/api-client-react";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -12,9 +11,12 @@ import {
   Clock,
   Sun,
   Moon,
-  LogIn,
+  Shield,
   Timer,
   TrendingUp,
+  Lock,
+  ArrowLeft,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -30,6 +32,16 @@ type PunchResult = {
   checkOutTime?: string | null;
 } | null;
 
+type Step = "id" | "factor" | "result";
+
+type FactorState = {
+  documentNumber: string;
+  employeeName: string;
+  department?: string;
+  requiresPin: boolean;
+  requiresPhoneLast4: boolean;
+};
+
 function formatHours(hours: number): string {
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
@@ -39,87 +51,206 @@ function formatHours(hours: number): string {
 }
 
 export default function Terminal() {
+  const [step, setStep] = useState<Step>("id");
   const [digits, setDigits] = useState("");
+  const [pinDigits, setPinDigits] = useState("");
+  const [factor, setFactor] = useState<FactorState | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [time, setTime] = useState(new Date());
   const [result, setResult] = useState<PunchResult>(null);
+  const verifyMutation = useVerifyIdentity();
   const punchMutation = usePunch();
   const { theme, toggleTheme } = useTheme();
-  const { user } = useAuth();
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    if (result) {
-      const timeout = setTimeout(() => {
-        setResult(null);
-        setDigits("");
-      }, 5000);
-      return () => clearTimeout(timeout);
-    }
-  }, [result]);
-
-  const handleSubmit = useCallback(async () => {
-    if (!digits || punchMutation.isPending) return;
-    try {
-      const res = await punchMutation.mutateAsync({ data: { documentNumber: digits } });
-      setResult({
-        type: res.type,
-        message: res.message,
-        employeeName: res.employee.name,
-        department: res.employee.department,
-        success: true,
-        workedHours: res.todaySummary.workedHours,
-        extraHours: res.todaySummary.extraHours,
-        checkInTime: res.todaySummary.checkInTime,
-        checkOutTime: res.todaySummary.checkOutTime,
-      });
-    } catch {
-      setResult({
-        type: "check_in",
-        message: "Empleado no encontrado. Por favor intente de nuevo.",
-        employeeName: "",
-        department: "",
-        success: false,
-      });
-    }
-  }, [digits, punchMutation]);
-
-  const handleDigit = useCallback((digit: string) => {
-    if (digits.length < 12) setDigits((prev) => prev + digit);
-  }, [digits]);
-
-  const handleClear = useCallback(() => {
-    setDigits((prev) => prev.slice(0, -1));
+  const resetAll = useCallback(() => {
+    setDigits("");
+    setPinDigits("");
+    setFactor(null);
+    setErrorMsg(null);
+    setResult(null);
+    setStep("id");
   }, []);
 
   useEffect(() => {
-    if (result) return;
+    if (step === "result") {
+      const timeout = setTimeout(resetAll, 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, [step, resetAll]);
+
+  // Step 1 — submit document
+  const submitId = useCallback(async () => {
+    if (!digits || verifyMutation.isPending) return;
+    setErrorMsg(null);
+    try {
+      const res = await verifyMutation.mutateAsync({ data: { documentNumber: digits } });
+      setFactor({
+        documentNumber: digits,
+        employeeName: res.employeeName,
+        department: res.department,
+        requiresPin: res.requiresPin,
+        requiresPhoneLast4: res.requiresPhoneLast4,
+      });
+      // If no second factor required at all, go straight to punch
+      if (!res.requiresPin && !res.requiresPhoneLast4) {
+        await doPunch(digits, undefined, undefined);
+      } else {
+        setPinDigits("");
+        setStep("factor");
+      }
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const errText = e?.response?.data?.error;
+      if (status === 423) {
+        setResult({
+          type: "check_in",
+          success: false,
+          employeeName: "",
+          department: "",
+          message: errText ?? "Terminal bloqueado temporalmente.",
+        });
+        setStep("result");
+      } else {
+        setErrorMsg(errText ?? "Empleado no encontrado.");
+      }
+    }
+  }, [digits, verifyMutation]); // eslint-disable-line
+
+  const doPunch = useCallback(
+    async (documentNumber: string, pin?: string, phoneLast4?: string) => {
+      try {
+        const res = await punchMutation.mutateAsync({
+          data: { documentNumber, ...(pin ? { pin } : {}), ...(phoneLast4 ? { phoneLast4 } : {}) },
+        });
+        setResult({
+          type: res.type,
+          message: res.message,
+          employeeName: res.employee.name,
+          department: res.employee.department,
+          success: true,
+          workedHours: res.todaySummary.workedHours,
+          extraHours: res.todaySummary.extraHours,
+          checkInTime: res.todaySummary.checkInTime,
+          checkOutTime: res.todaySummary.checkOutTime,
+        });
+        setStep("result");
+      } catch (e: any) {
+        const status = e?.response?.status;
+        const data = e?.response?.data;
+        if (status === 423) {
+          setResult({
+            type: "check_in",
+            success: false,
+            employeeName: "",
+            department: "",
+            message: data?.error ?? "Terminal bloqueado por 60 segundos.",
+          });
+          setStep("result");
+        } else if (status === 401) {
+          setPinDigits("");
+          setErrorMsg(data?.error ?? "Verificación fallida.");
+        } else {
+          setResult({
+            type: "check_in",
+            success: false,
+            employeeName: "",
+            department: "",
+            message: data?.error ?? "No se pudo registrar la asistencia.",
+          });
+          setStep("result");
+        }
+      }
+    },
+    [punchMutation]
+  );
+
+  // Step 2 — submit second factor
+  const submitFactor = useCallback(async () => {
+    if (!factor || pinDigits.length !== 4 || punchMutation.isPending) return;
+    setErrorMsg(null);
+    if (factor.requiresPin) {
+      await doPunch(factor.documentNumber, pinDigits, undefined);
+    } else if (factor.requiresPhoneLast4) {
+      await doPunch(factor.documentNumber, undefined, pinDigits);
+    }
+  }, [factor, pinDigits, doPunch, punchMutation]);
+
+  // Keypad handlers
+  const handleDigit = useCallback(
+    (d: string) => {
+      if (step === "id") {
+        if (digits.length < 12) setDigits((p) => p + d);
+      } else if (step === "factor") {
+        if (pinDigits.length < 4) setPinDigits((p) => p + d);
+      }
+    },
+    [step, digits, pinDigits]
+  );
+
+  const handleClear = useCallback(() => {
+    if (step === "id") setDigits((p) => p.slice(0, -1));
+    else if (step === "factor") setPinDigits((p) => p.slice(0, -1));
+  }, [step]);
+
+  const handleSubmit = useCallback(() => {
+    if (step === "id") submitId();
+    else if (step === "factor") submitFactor();
+  }, [step, submitId, submitFactor]);
+
+  // Auto-submit second factor when 4 digits entered
+  useEffect(() => {
+    if (step === "factor" && pinDigits.length === 4 && !punchMutation.isPending) {
+      submitFactor();
+    }
+  }, [step, pinDigits, submitFactor, punchMutation.isPending]);
+
+  // Keyboard support
+  useEffect(() => {
+    if (step === "result") return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key >= "0" && e.key <= "9") handleDigit(e.key);
       else if (e.key === "Backspace") handleClear();
       else if (e.key === "Enter") handleSubmit();
-      else if (e.key === "Escape") setDigits("");
+      else if (e.key === "Escape") {
+        if (step === "factor") {
+          setStep("id");
+          setPinDigits("");
+          setErrorMsg(null);
+        } else {
+          setDigits("");
+        }
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [result, handleDigit, handleClear, handleSubmit]);
+  }, [step, handleDigit, handleClear, handleSubmit]);
 
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "back"];
 
+  const currentValue = step === "id" ? digits : pinDigits;
+  const factorLabel = factor?.requiresPin
+    ? "PIN personal (4 dígitos)"
+    : factor?.requiresPhoneLast4
+      ? "Últimos 4 dígitos del teléfono"
+      : "";
+  const isBusy = verifyMutation.isPending || punchMutation.isPending;
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-3 sm:p-4">
+      <div className="absolute top-3 left-3 sm:top-4 sm:left-4">
+        <Link href="/login">
+          <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground text-xs">
+            <Shield className="w-3.5 h-3.5" />
+            Modo Administrador
+          </Button>
+        </Link>
+      </div>
       <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-2">
-        {!user && (
-          <Link href="/login">
-            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground text-xs">
-              <LogIn className="w-3.5 h-3.5" />
-              Administración
-            </Button>
-          </Link>
-        )}
         <Button
           variant="ghost"
           size="icon"
@@ -146,7 +277,7 @@ export default function Terminal() {
         </div>
 
         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl">
-          {result ? (
+          {step === "result" && result ? (
             <div className="p-8 text-center">
               {result.success ? (
                 <>
@@ -166,7 +297,7 @@ export default function Terminal() {
                   >
                     {result.message}
                   </div>
-                  {(result.workedHours !== undefined && result.workedHours > 0) && (
+                  {result.workedHours !== undefined && result.workedHours > 0 && (
                     <div className="mt-4 grid grid-cols-2 gap-3">
                       <div className="bg-secondary rounded-xl px-3 py-3 text-center">
                         <div className="flex items-center justify-center gap-1 mb-1">
@@ -175,12 +306,20 @@ export default function Terminal() {
                         </div>
                         <span className="font-mono font-bold text-sm">{formatHours(result.workedHours)}</span>
                       </div>
-                      <div className={`rounded-xl px-3 py-3 text-center ${result.extraHours && result.extraHours > 0 ? "bg-chart-2/10" : "bg-secondary"}`}>
+                      <div
+                        className={`rounded-xl px-3 py-3 text-center ${
+                          result.extraHours && result.extraHours > 0 ? "bg-chart-2/10" : "bg-secondary"
+                        }`}
+                      >
                         <div className="flex items-center justify-center gap-1 mb-1">
                           <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
                           <span className="text-xs text-muted-foreground">Extras</span>
                         </div>
-                        <span className={`font-mono font-bold text-sm ${result.extraHours && result.extraHours > 0 ? "text-chart-2" : ""}`}>
+                        <span
+                          className={`font-mono font-bold text-sm ${
+                            result.extraHours && result.extraHours > 0 ? "text-chart-2" : ""
+                          }`}
+                        >
                           {formatHours(result.extraHours ?? 0)}
                         </span>
                       </div>
@@ -189,8 +328,8 @@ export default function Terminal() {
                 </>
               ) : (
                 <>
-                  <XCircle className="w-14 h-14 mx-auto mb-4 text-destructive" />
-                  <p className="text-lg font-semibold">No Encontrado</p>
+                  <Lock className="w-14 h-14 mx-auto mb-4 text-destructive" />
+                  <p className="text-lg font-semibold">Acceso denegado</p>
                   <div className="mt-4 px-4 py-2 rounded-lg text-sm bg-destructive/10 text-destructive">
                     {result.message}
                   </div>
@@ -199,17 +338,51 @@ export default function Terminal() {
             </div>
           ) : (
             <div className="p-6">
+              {step === "factor" && factor && (
+                <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                  <button
+                    onClick={() => {
+                      setStep("id");
+                      setPinDigits("");
+                      setErrorMsg(null);
+                    }}
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" /> Atrás
+                  </button>
+                  <span className="text-foreground font-medium">· {factor.employeeName}</span>
+                </div>
+              )}
+
               <p className="text-xs text-muted-foreground text-center mb-3 font-medium uppercase tracking-wider">
-                Número de documento
+                {step === "id" ? "Número de documento" : factorLabel}
               </p>
-              <div className="bg-secondary rounded-xl px-4 py-3 mb-5 min-h-[52px] flex items-center">
-                <span className="font-mono text-2xl tracking-widest text-foreground flex-1">
-                  {digits.replace(/(.{4})/g, "$1 ").trim() || ""}
-                </span>
-                <span className="text-muted-foreground text-sm ml-2">
-                  {digits.length > 0 ? `${digits.length} díg.` : "—"}
-                </span>
+
+              <div className="bg-secondary rounded-xl px-4 py-3 mb-3 min-h-[52px] flex items-center">
+                {step === "factor" ? (
+                  <div className="flex-1 flex items-center justify-center gap-3">
+                    <KeyRound className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-mono text-3xl tracking-[0.6em] text-foreground">
+                      {pinDigits.replace(/./g, "•").padEnd(4, "○")}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <span className="font-mono text-2xl tracking-widest text-foreground flex-1">
+                      {digits.replace(/(.{4})/g, "$1 ").trim() || ""}
+                    </span>
+                    <span className="text-muted-foreground text-sm ml-2">
+                      {digits.length > 0 ? `${digits.length} díg.` : "—"}
+                    </span>
+                  </>
+                )}
               </div>
+
+              {errorMsg && (
+                <div className="mb-3 px-3 py-2 rounded-lg text-sm bg-destructive/10 text-destructive border border-destructive/20">
+                  {errorMsg}
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-3">
                 {keys.map((key, i) => (
@@ -235,19 +408,27 @@ export default function Terminal() {
                 ))}
               </div>
 
-              <button
-                onClick={handleSubmit}
-                disabled={digits.length === 0 || punchMutation.isPending}
-                className="w-full mt-4 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-base hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {punchMutation.isPending ? "Registrando..." : "Registrar Asistencia"}
-              </button>
+              {step === "id" && (
+                <button
+                  onClick={handleSubmit}
+                  disabled={currentValue.length === 0 || isBusy}
+                  className="w-full mt-4 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-base hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isBusy ? "Verificando…" : "Continuar"}
+                </button>
+              )}
+
+              {step === "factor" && (
+                <p className="text-xs text-muted-foreground text-center mt-4">
+                  {isBusy ? "Registrando…" : "Ingrese 4 dígitos para confirmar"}
+                </p>
+              )}
             </div>
           )}
         </div>
 
         <p className="text-xs text-center text-muted-foreground mt-4">
-          Teclado físico: números para ingresar · Enter para registrar · Esc para limpiar
+          Teclado físico: números para ingresar · Enter para confirmar · Esc para limpiar
         </p>
       </div>
     </div>

@@ -7,6 +7,7 @@ import attendanceRouter from "./attendance";
 import dashboardRouter from "./dashboard";
 import usersRouter from "./users";
 import workScheduleRouter from "./workSchedule";
+import auditRouter from "./audit";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(attendanceRouter);
 router.use(dashboardRouter);
 router.use(usersRouter);
 router.use(workScheduleRouter);
+router.use(auditRouter);
 
 export default router;

@@ -22,9 +22,9 @@ export function ProtectedRoute({ component: Component, allowedRoles, path }: Pro
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // Redirect based on role
     if (user.role === "super_admin") {
-      return <Redirect to="/companies" />;
+      return <Redirect to="/app/companies" />;
     }
-    return <Redirect to="/dashboard" />;
+    return <Redirect to="/app/dashboard" />;
   }
 
   return <Component />;
