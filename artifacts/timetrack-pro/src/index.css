@@ -344,3 +344,19 @@
   line-height: 1.4;
   padding: 4px 8px;
 }
+
+/* Limit fraction layout */
+.limit-fraction { gap: 4px; }
+.limit-fraction-bar {
+  height: 1.5px;
+  background: hsl(var(--foreground) / 0.7);
+  border-radius: 2px;
+  margin: 2px 0;
+  width: 100%;
+}
+.limit-input-frac {
+  border-bottom: none !important;
+  background: transparent;
+}
+.limit-input-frac:hover { background: hsl(var(--primary) / 0.04); }
+.limit-input-frac:focus { background: hsl(var(--primary) / 0.06); }

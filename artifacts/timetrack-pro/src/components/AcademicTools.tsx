@@ -114,6 +114,99 @@ function safeSimplify(node: MathNode): MathNode {
   }
 }
 
+// Extract polynomial coefficients in ascending order [c0, c1, c2, ...]
+// using Taylor expansion at 0. Returns null if expression is not a polynomial in x.
+function polyCoeffs(node: MathNode, maxDeg = 8): number[] | null {
+  const coeffs: number[] = [];
+  let current: MathNode = node;
+  let factorial = 1;
+  for (let i = 0; i <= maxDeg; i++) {
+    if (i > 0) {
+      try {
+        current = math.derivative(current, "x");
+      } catch {
+        return null;
+      }
+    }
+    let v: any;
+    try {
+      v = current.evaluate({ x: 0 });
+    } catch {
+      return null;
+    }
+    if (typeof v !== "number" || !isFinite(v)) return null;
+    coeffs.push(v / factorial);
+    factorial *= i + 1;
+  }
+  // Verify polynomial: one more derivative should evaluate to ~0 across several points
+  try {
+    const extra = math.derivative(current, "x");
+    for (const test of [-2, -1, 0, 1, 2]) {
+      const ev = extra.evaluate({ x: test });
+      if (typeof ev !== "number" || Math.abs(ev) > 1e-6) return null;
+    }
+  } catch {
+    return null;
+  }
+  // Trim trailing zeros
+  while (coeffs.length > 1 && Math.abs(coeffs[coeffs.length - 1]) < 1e-9) coeffs.pop();
+  return coeffs;
+}
+
+// Synthetic division of polynomial (ascending coeffs) by (x - a)
+function syntheticDivide(coeffs: number[], a: number): { quotient: number[]; remainder: number } {
+  const desc = [...coeffs].reverse();
+  const out: number[] = [desc[0]];
+  for (let i = 1; i < desc.length; i++) {
+    out.push(desc[i] + a * out[i - 1]);
+  }
+  const remainder = out.pop()!;
+  return { quotient: out.reverse(), remainder };
+}
+
+function coeffsToNode(coeffs: number[]): MathNode {
+  const cleaned = [...coeffs];
+  while (cleaned.length > 1 && Math.abs(cleaned[cleaned.length - 1]) < 1e-9) cleaned.pop();
+  const terms: string[] = [];
+  for (let i = 0; i < cleaned.length; i++) {
+    const c = cleaned[i];
+    if (Math.abs(c) < 1e-9) continue;
+    const cRound = Math.abs(c - Math.round(c)) < 1e-9 ? Math.round(c) : Number(c.toFixed(6));
+    if (i === 0) terms.push(`${cRound}`);
+    else if (i === 1) terms.push(`${cRound}*x`);
+    else terms.push(`${cRound}*x^${i}`);
+  }
+  const expr = terms.length ? terms.join(" + ").replace(/\+ -/g, "- ") : "0";
+  return math.parse(expr);
+}
+
+// Attempt to factor (x - a) from numerator and denominator simultaneously.
+// Returns simplified num/den nodes after canceling all common (x - a) factors.
+function factorOutRoot(
+  num: MathNode,
+  den: MathNode,
+  a: number
+): { num: MathNode; den: MathNode; canceled: number } | null {
+  let nc = polyCoeffs(num);
+  let dc = polyCoeffs(den);
+  if (!nc || !dc) return null;
+  let canceled = 0;
+  while (true) {
+    const nv = nc.reduce((s, c, i) => s + c * Math.pow(a, i), 0);
+    const dv = dc.reduce((s, c, i) => s + c * Math.pow(a, i), 0);
+    if (Math.abs(nv) > 1e-7 || Math.abs(dv) > 1e-7) break;
+    if (nc.length <= 1 || dc.length <= 1) break;
+    const nDiv = syntheticDivide(nc, a);
+    const dDiv = syntheticDivide(dc, a);
+    if (Math.abs(nDiv.remainder) > 1e-6 || Math.abs(dDiv.remainder) > 1e-6) break;
+    nc = nDiv.quotient;
+    dc = dDiv.quotient;
+    canceled++;
+  }
+  if (canceled === 0) return null;
+  return { num: coeffsToNode(nc), den: coeffsToNode(dc), canceled };
+}
+
 function computeLimit(exprStr: string, target: string): LimitResult {
   const steps: Step[] = [];
   const node = math.parse(exprStr);
@@ -202,20 +295,42 @@ function computeLimit(exprStr: string, target: string): LimitResult {
         });
       }
     } else {
-      // FACTORIZACIÓN — try to simplify both num/den and find common factor cancellation
-      const simplifiedWhole = safeSimplify(node);
-      if (simplifiedWhole.toString() !== node.toString()) {
+      // FACTORIZACIÓN — try synthetic division by (x - a) on numerator and denominator
+      const factored = aVal !== null ? factorOutRoot(num, den, aVal) : null;
+      if (factored && factored.canceled > 0) {
+        const newDen = factored.den.toString() === "1" ? null : factored.den;
         steps.push({
-          title: "Paso 2 — Factorización y simplificación",
-          tex: `= ${nodeToTex(simplifiedWhole)}`,
-          note: "Factorizamos numerador y denominador y cancelamos los factores comunes.",
+          title: "Paso 2 — Factorización",
+          tex: `= \\dfrac{(x - ${aVal})\\,\\left(${nodeToTex(factored.num)}\\right)}{(x - ${aVal})\\,\\left(${nodeToTex(
+            factored.den
+          )}\\right)}`,
+          note: `Factorizamos (x - ${aVal}) en numerador y denominador.`,
         });
-        working = simplifiedWhole;
+        steps.push({
+          title: "Paso 3 — Simplificación",
+          tex: newDen
+            ? `= \\dfrac{${nodeToTex(factored.num)}}{${nodeToTex(factored.den)}}`
+            : `= ${nodeToTex(factored.num)}`,
+          note: "Cancelamos el factor común.",
+        });
+        working = newDen ? math.parse(`(${factored.num.toString()})/(${factored.den.toString()})`) : factored.num;
       } else {
-        steps.push({
-          title: "Paso 2 — Manipulación algebraica",
-          note: "No fue posible simplificar simbólicamente esta forma de manera directa.",
-        });
+        // L'Hôpital fallback
+        try {
+          const dnum = math.derivative(num, "x");
+          const dden = math.derivative(den, "x");
+          steps.push({
+            title: "Paso 2 — Regla de L'Hôpital",
+            tex: `= \\lim_{x \\to ${targetTex}} \\dfrac{\\dfrac{d}{dx}\\left[${nodeToTex(num)}\\right]}{\\dfrac{d}{dx}\\left[${nodeToTex(den)}\\right]} = \\lim_{x \\to ${targetTex}} \\dfrac{${nodeToTex(dnum)}}{${nodeToTex(dden)}}`,
+            note: "Derivamos numerador y denominador por separado.",
+          });
+          working = math.parse(`(${dnum.toString()})/(${dden.toString()})`);
+        } catch {
+          steps.push({
+            title: "Paso 2 — Manipulación algebraica",
+            note: "No fue posible resolver simbólicamente esta forma.",
+          });
+        }
       }
     }
   } else if (!indeterminate) {
@@ -250,20 +365,29 @@ function computeLimit(exprStr: string, target: string): LimitResult {
 }
 
 function LimitCalculator() {
-  const [expr, setExpr] = useState("(x^2 - 4)/(x - 2)");
+  const [numerator, setNumerator] = useState("x^2 - 4");
+  const [denominator, setDenominator] = useState("x - 2");
   const [target, setTarget] = useState("2");
   const [error, setError] = useState<string | null>(null);
 
+  const combinedExpr = useMemo(() => {
+    const num = numerator.trim();
+    const den = denominator.trim();
+    if (!num) return "";
+    if (!den) return num;
+    return `(${num})/(${den})`;
+  }, [numerator, denominator]);
+
   const result = useMemo<LimitResult | null>(() => {
     setError(null);
-    if (!expr.trim() || !target.trim()) return null;
+    if (!combinedExpr || !target.trim()) return null;
     try {
-      return computeLimit(expr, target);
+      return computeLimit(combinedExpr, target);
     } catch (e: any) {
       setError(e?.message ?? "No se pudo procesar la expresión");
       return null;
     }
-  }, [expr, target]);
+  }, [combinedExpr, target]);
 
   return (
     <div className="bg-card border border-border rounded-xl p-5 space-y-4">
@@ -275,7 +399,7 @@ function LimitCalculator() {
         Resolución simbólica paso a paso. Soporta polinomios, raíces (sqrt), funciones trigonométricas y exponenciales.
       </p>
 
-      <div className="limit-equation flex items-center gap-3 px-2 py-4 rounded-lg bg-background/30 border border-border/40">
+      <div className="limit-equation flex items-center gap-4 px-3 py-5 rounded-lg bg-background/30 border border-border/40">
         <div className="flex flex-col items-center shrink-0">
           <span className="limit-lim leading-none text-4xl">lim</span>
           <div className="flex items-center gap-1 mt-1 text-base limit-sub">
@@ -290,16 +414,28 @@ function LimitCalculator() {
             />
           </div>
         </div>
-        <div className="flex-1">
+
+        <div className="flex-1 flex flex-col items-stretch limit-fraction">
           <input
-            value={expr}
-            onChange={(e) => setExpr(e.target.value)}
-            placeholder="f(x)"
-            aria-label="Función f(x)"
-            className="limit-input limit-input-fx w-full text-2xl"
+            value={numerator}
+            onChange={(e) => setNumerator(e.target.value)}
+            placeholder="numerador"
+            aria-label="Numerador"
+            className="limit-input limit-input-frac text-xl text-center"
+          />
+          <div className="limit-fraction-bar" aria-hidden="true" />
+          <input
+            value={denominator}
+            onChange={(e) => setDenominator(e.target.value)}
+            placeholder="denominador (opcional)"
+            aria-label="Denominador"
+            className="limit-input limit-input-frac text-xl text-center"
           />
         </div>
       </div>
+      <p className="text-[11px] text-muted-foreground -mt-2">
+        Si el límite no es una fracción, deja el denominador vacío y escribe toda la expresión en el numerador.
+      </p>
 
       {error && (
         <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
