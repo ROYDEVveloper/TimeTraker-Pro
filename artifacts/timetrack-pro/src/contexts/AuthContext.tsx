@@ -3,6 +3,12 @@ import { useGetMe, UserProfile, setAuthTokenGetter } from "@workspace/api-client
 import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
 
+// Register synchronously at module load so the bearer token is attached
+// to the very first request fired by React Query (e.g. useGetMe).
+if (typeof window !== "undefined") {
+  setAuthTokenGetter(() => window.localStorage.getItem("timetrack_token"));
+}
+
 interface AuthContextType {
   user: UserProfile | null;
   isLoading: boolean;
@@ -17,10 +23,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.getItem("timetrack_token")
   );
   const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    setAuthTokenGetter(() => localStorage.getItem("timetrack_token"));
-  }, []);
 
   const { data: user, isLoading: isUserLoading, isError } = useGetMe({
     query: {
