@@ -40,7 +40,7 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div>
           <h1 className="text-xl font-semibold">Panel de Control</h1>
           <p className="text-sm text-muted-foreground mt-0.5 capitalize">
@@ -48,7 +48,7 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
           {summaryLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="bg-card border border-border rounded-xl p-5 animate-pulse h-24" />

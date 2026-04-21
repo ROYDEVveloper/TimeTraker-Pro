@@ -56,19 +56,20 @@ export default function Reports() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-5">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 space-y-5">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-xl font-semibold">Reportes</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Consultar y exportar registros de asistencia</p>
           </div>
           <Button variant="outline" size="sm" onClick={exportCsv} disabled={!filtered?.length} className="gap-2">
             <Download className="w-4 h-4" />
-            Exportar CSV
+            <span className="hidden sm:inline">Exportar CSV</span>
+            <span className="sm:hidden">CSV</span>
           </Button>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-card border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="space-y-1.5">
             <Label className="text-xs">Desde</Label>
             <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-9" />
@@ -115,7 +116,42 @@ export default function Reports() {
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            {/* Mobile card layout */}
+            <div className="sm:hidden p-3 space-y-2">
+              {(!filtered || filtered.length === 0) ? (
+                <div className="px-4 py-10 text-center text-muted-foreground text-sm">
+                  No se encontraron registros
+                </div>
+              ) : (
+                filtered.map((log) => (
+                  <div key={log.id} className="border border-border rounded-lg p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{log.employee?.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{log.employee?.department}</p>
+                      </div>
+                      <Badge variant={log.type === "check_in" ? "default" : "secondary"} className="text-xs flex-shrink-0">
+                        {log.type === "check_in" ? "Entrada" : "Salida"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="capitalize text-muted-foreground">
+                        {format(new Date(log.timestamp), "d MMM yyyy", { locale: es })}
+                      </span>
+                      <span className="font-mono">{format(new Date(log.timestamp), "HH:mm:ss")}</span>
+                    </div>
+                    {log.employee?.nationalId && (
+                      <p className="text-xs font-mono text-muted-foreground">ID: {log.employee.nationalId}</p>
+                    )}
+                    {log.notes && <p className="text-xs text-muted-foreground">Notas: {log.notes}</p>}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop/tablet table */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/40">
@@ -160,6 +196,7 @@ export default function Reports() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       </div>

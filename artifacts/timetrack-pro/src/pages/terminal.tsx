@@ -110,8 +110,8 @@ export default function Terminal() {
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "back"];
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
-      <div className="absolute top-4 right-4 flex items-center gap-2">
+    <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-3 sm:p-4">
+      <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-2">
         {!user && (
           <Link href="/login">
             <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground text-xs">
@@ -131,16 +131,16 @@ export default function Terminal() {
         </Button>
       </div>
 
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
+      <div className="w-full max-w-sm sm:max-w-md mt-12 sm:mt-0">
+        <div className="text-center mb-6 sm:mb-8">
           <div className="flex items-center justify-center gap-2 mb-3">
             <Clock className="w-5 h-5 text-primary" />
             <span className="text-lg font-bold font-mono text-primary tracking-tight">TimeTrackPro</span>
           </div>
-          <div className="text-5xl font-mono font-bold tabular-nums tracking-tight">
+          <div className="text-5xl sm:text-6xl font-mono font-bold tabular-nums tracking-tight">
             {format(time, "HH:mm:ss")}
           </div>
-          <div className="text-sm text-muted-foreground mt-1.5 capitalize">
+          <div className="text-xs sm:text-sm text-muted-foreground mt-1.5 capitalize px-2">
             {format(time, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
           </div>
         </div>
@@ -221,12 +221,12 @@ export default function Terminal() {
                         onClick={handleClear}
                         className="w-full aspect-square flex items-center justify-center rounded-xl bg-secondary text-muted-foreground hover:bg-secondary/80 active:scale-95 transition-all"
                       >
-                        <Delete className="w-5 h-5" />
+                        <Delete className="w-6 h-6 sm:w-5 sm:h-5" />
                       </button>
                     ) : (
                       <button
                         onClick={() => handleDigit(key)}
-                        className="w-full aspect-square flex items-center justify-center rounded-xl bg-secondary text-foreground hover:bg-secondary/70 active:scale-95 transition-all text-xl font-semibold font-mono"
+                        className="w-full aspect-square flex items-center justify-center rounded-xl bg-secondary text-foreground hover:bg-secondary/70 active:scale-95 transition-all text-2xl sm:text-xl font-semibold font-mono"
                       >
                         {key}
                       </button>

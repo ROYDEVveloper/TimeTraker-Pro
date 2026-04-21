@@ -145,8 +145,8 @@ export default function EmployeesList() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-5">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 space-y-5">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-xl font-semibold">Empleados</h1>
             <p className="text-sm text-muted-foreground mt-0.5">{employees?.length ?? 0} empleados en total</p>
@@ -154,12 +154,13 @@ export default function EmployeesList() {
           {isAdmin && (
             <Button onClick={openCreate} size="sm" className="gap-2">
               <Plus className="w-4 h-4" />
-              Agregar Empleado
+              <span className="hidden sm:inline">Agregar Empleado</span>
+              <span className="sm:hidden">Agregar</span>
             </Button>
           )}
         </div>
 
-        <div className="relative max-w-xs">
+        <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Buscar empleados..."
@@ -169,14 +170,96 @@ export default function EmployeesList() {
           />
         </div>
 
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          {isLoading ? (
-            <div className="p-8 flex items-center justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        {isLoading ? (
+          <div className="bg-card border border-border rounded-xl p-8 flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <>
+            {/* Mobile card layout */}
+            <div className="sm:hidden space-y-3">
+              {filtered?.length === 0 ? (
+                <div className="bg-card border border-border rounded-xl p-8 text-center text-muted-foreground text-sm">
+                  No se encontraron empleados
+                </div>
+              ) : (
+                filtered?.map((emp) => {
+                  const empStatus = statusMap.get(emp.id);
+                  const attendanceStatus = empStatus?.attendanceStatus ?? "outside";
+                  const checkInTime = empStatus?.lastCheckIn;
+                  const isInside = attendanceStatus === "inside";
+
+                  return (
+                    <div key={emp.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <UserCircle className="w-5 h-5 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{emp.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{emp.email}</p>
+                          </div>
+                        </div>
+                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium flex-shrink-0 ${STATUS_COLOR[attendanceStatus] ?? ""}`}>
+                          {isInside && <span className="w-1.5 h-1.5 rounded-full bg-chart-2 animate-pulse" />}
+                          {STATUS_LABEL[attendanceStatus] ?? attendanceStatus}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">Departamento</p>
+                          <p className="font-medium">{emp.department}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Cargo</p>
+                          <p className="font-medium">{emp.position}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">N° Documento</p>
+                          <p className="font-mono">{emp.documentNumber}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">En oficina</p>
+                          {isInside && checkInTime ? (
+                            <LiveTimer checkInTime={checkInTime} />
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {isAdmin && (
+                        <div className="flex flex-col gap-2 pt-2 border-t border-border">
+                          <Link href={`/employees/${emp.id}`}>
+                            <Button variant="outline" size="sm" className="w-full gap-2">
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              Ver detalle
+                            </Button>
+                          </Link>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button variant="outline" size="sm" className="gap-2" onClick={() => openEdit(emp)}>
+                              <Pencil className="w-3.5 h-3.5" />
+                              Editar
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-2 text-destructive hover:text-destructive" onClick={() => setIsDeleteConfirm(emp.id)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Eliminar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+
+            {/* Desktop/tablet table */}
+            <div className="hidden sm:block bg-card border border-border rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/40">
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Empleado</th>
@@ -256,9 +339,10 @@ export default function EmployeesList() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
