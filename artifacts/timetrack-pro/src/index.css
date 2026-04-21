@@ -273,3 +273,21 @@
     inset: -1px;
   }
 }
+
+/* Academic Tools - native <details> accordion */
+.academic-accordion summary::-webkit-details-marker { display: none; }
+.academic-accordion summary::marker { content: ""; }
+
+.academic-accordion-content {
+  overflow: hidden;
+  animation: academic-acc-open 280ms ease-in-out;
+}
+
+@keyframes academic-acc-open {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.academic-accordion .katex,
+.academic-accordion .katex-display { color: inherit; }
+.academic-accordion .katex-display { margin: 0.25rem 0; }
