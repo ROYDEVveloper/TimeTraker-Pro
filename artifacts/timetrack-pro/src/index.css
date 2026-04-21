@@ -291,3 +291,56 @@
 .academic-accordion .katex,
 .academic-accordion .katex-display { color: inherit; }
 .academic-accordion .katex-display { margin: 0.25rem 0; }
+
+/* Academic Tools - mathematical limit equation input */
+.limit-equation {
+  font-family: "KaTeX_Main", "Latin Modern Math", "Cambria Math", "Times New Roman", serif;
+}
+
+.limit-equation .limit-lim {
+  font-family: "KaTeX_Main", "Latin Modern Math", "Cambria Math", "Times New Roman", serif;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.limit-equation .limit-sub {
+  font-family: "KaTeX_Math", "Latin Modern Math", "Cambria Math", "Times New Roman", serif;
+}
+
+.limit-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid hsl(var(--border));
+  outline: none;
+  color: inherit;
+  font-family: "KaTeX_Math", "Latin Modern Math", "Cambria Math", "Times New Roman", serif;
+  font-style: italic;
+  padding: 2px 4px;
+  transition: border-color 180ms ease-in-out, background-color 180ms ease-in-out;
+}
+
+.limit-input:hover {
+  border-bottom-color: hsl(var(--primary) / 0.6);
+  background: hsl(var(--primary) / 0.04);
+}
+
+.limit-input:focus {
+  border-bottom-color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.06);
+}
+
+.limit-input::placeholder {
+  color: hsl(var(--muted-foreground) / 0.5);
+  font-style: italic;
+}
+
+.limit-input-sub {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.limit-input-fx {
+  line-height: 1.4;
+  padding: 4px 8px;
+}

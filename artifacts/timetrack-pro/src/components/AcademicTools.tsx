@@ -275,23 +275,28 @@ function LimitCalculator() {
         Resolución simbólica paso a paso. Soporta polinomios, raíces (sqrt), funciones trigonométricas y exponenciales.
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-        <div className="sm:col-span-3 space-y-1.5">
-          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground/80">Función f(x)</Label>
-          <Input
+      <div className="limit-equation flex items-center gap-3 px-2 py-4 rounded-lg bg-background/30 border border-border/40">
+        <div className="flex flex-col items-center shrink-0">
+          <span className="limit-lim leading-none text-4xl">lim</span>
+          <div className="flex items-center gap-1 mt-1 text-base limit-sub">
+            <span className="italic">x</span>
+            <span className="text-muted-foreground">→</span>
+            <input
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+              placeholder="a"
+              aria-label="x tiende a"
+              className="limit-input limit-input-sub w-12 text-center"
+            />
+          </div>
+        </div>
+        <div className="flex-1">
+          <input
             value={expr}
             onChange={(e) => setExpr(e.target.value)}
-            placeholder="ej: (x^2 - 4)/(x - 2)"
-            className="font-mono h-10"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground/80">x tiende a</Label>
-          <Input
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            placeholder="ej: 2"
-            className="font-mono h-10 text-center"
+            placeholder="f(x)"
+            aria-label="Función f(x)"
+            className="limit-input limit-input-fx w-full text-2xl"
           />
         </div>
       </div>
