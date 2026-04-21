@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
   path?: string;
 }
 
-export function ProtectedRoute({ component: Component, allowedRoles, path }: ProtectedRouteProps) {
+export function ProtectedRoute({ component: Component, allowedRoles }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -20,9 +20,11 @@ export function ProtectedRoute({ component: Component, allowedRoles, path }: Pro
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    // Redirect based on role
+    if (user.role === "employee") {
+      return <Redirect to="/terminal" />;
+    }
     if (user.role === "super_admin") {
-      return <Redirect to="/app/companies" />;
+      return <Redirect to="/app/dashboard" />;
     }
     return <Redirect to="/app/dashboard" />;
   }

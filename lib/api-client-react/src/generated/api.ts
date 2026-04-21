@@ -24,6 +24,7 @@ import type {
   AuditLogsPage,
   AuthResponse,
   Company,
+  CompanyBreakdown,
   CompanyWithStats,
   CreateCompanyBody,
   CreateEmployeeBody,
@@ -33,6 +34,7 @@ import type {
   EmployeeWithStatus,
   ErrorResponse,
   GetEmployeeAttendanceParams,
+  GlobalSummary,
   HealthStatus,
   ListAttendanceLogsParams,
   ListAuditLogsParams,
@@ -1904,6 +1906,231 @@ export function useGetAttendanceTrends<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetAttendanceTrendsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Global platform summary (super_admin)
+ */
+export const getGetGlobalSummaryUrl = () => {
+  return `/api/dashboard/global-summary`;
+};
+
+export const getGlobalSummary = async (
+  options?: RequestInit,
+): Promise<GlobalSummary> => {
+  return customFetch<GlobalSummary>(getGetGlobalSummaryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetGlobalSummaryQueryKey = () => {
+  return [`/api/dashboard/global-summary`] as const;
+};
+
+export const getGetGlobalSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGlobalSummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getGlobalSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetGlobalSummaryQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getGlobalSummary>>
+  > = ({ signal }) => getGlobalSummary({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGlobalSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGlobalSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGlobalSummary>>
+>;
+export type GetGlobalSummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Global platform summary (super_admin)
+ */
+
+export function useGetGlobalSummary<
+  TData = Awaited<ReturnType<typeof getGlobalSummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getGlobalSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGlobalSummaryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Global 7-day attendance trends (super_admin)
+ */
+export const getGetGlobalTrendsUrl = () => {
+  return `/api/dashboard/global-trends`;
+};
+
+export const getGlobalTrends = async (
+  options?: RequestInit,
+): Promise<AttendanceTrendDay[]> => {
+  return customFetch<AttendanceTrendDay[]>(getGetGlobalTrendsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetGlobalTrendsQueryKey = () => {
+  return [`/api/dashboard/global-trends`] as const;
+};
+
+export const getGetGlobalTrendsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGlobalTrends>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getGlobalTrends>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetGlobalTrendsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getGlobalTrends>>> = ({
+    signal,
+  }) => getGlobalTrends({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGlobalTrends>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGlobalTrendsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGlobalTrends>>
+>;
+export type GetGlobalTrendsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Global 7-day attendance trends (super_admin)
+ */
+
+export function useGetGlobalTrends<
+  TData = Awaited<ReturnType<typeof getGlobalTrends>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getGlobalTrends>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGlobalTrendsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Per-company attendance breakdown for today (super_admin)
+ */
+export const getGetCompaniesBreakdownUrl = () => {
+  return `/api/dashboard/companies-breakdown`;
+};
+
+export const getCompaniesBreakdown = async (
+  options?: RequestInit,
+): Promise<CompanyBreakdown[]> => {
+  return customFetch<CompanyBreakdown[]>(getGetCompaniesBreakdownUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCompaniesBreakdownQueryKey = () => {
+  return [`/api/dashboard/companies-breakdown`] as const;
+};
+
+export const getGetCompaniesBreakdownQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCompaniesBreakdown>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCompaniesBreakdown>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCompaniesBreakdownQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCompaniesBreakdown>>
+  > = ({ signal }) => getCompaniesBreakdown({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCompaniesBreakdown>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCompaniesBreakdownQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCompaniesBreakdown>>
+>;
+export type GetCompaniesBreakdownQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Per-company attendance breakdown for today (super_admin)
+ */
+
+export function useGetCompaniesBreakdown<
+  TData = Awaited<ReturnType<typeof getCompaniesBreakdown>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCompaniesBreakdown>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCompaniesBreakdownQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -436,6 +436,41 @@ export const GetAttendanceTrendsResponse = zod.array(
 );
 
 /**
+ * @summary Global platform summary (super_admin)
+ */
+export const GetGlobalSummaryResponse = zod.object({
+  totalCompanies: zod.number(),
+  totalEmployees: zod.number(),
+  checkInsToday: zod.number(),
+  checkOutsToday: zod.number(),
+  activeCompaniesToday: zod.number(),
+});
+
+/**
+ * @summary Global 7-day attendance trends (super_admin)
+ */
+export const GetGlobalTrendsResponseItem = zod.object({
+  date: zod.string(),
+  checkIns: zod.number(),
+  checkOuts: zod.number(),
+});
+export const GetGlobalTrendsResponse = zod.array(GetGlobalTrendsResponseItem);
+
+/**
+ * @summary Per-company attendance breakdown for today (super_admin)
+ */
+export const GetCompaniesBreakdownResponseItem = zod.object({
+  companyId: zod.number(),
+  companyName: zod.string(),
+  employees: zod.number(),
+  checkInsToday: zod.number(),
+  checkOutsToday: zod.number(),
+});
+export const GetCompaniesBreakdownResponse = zod.array(
+  GetCompaniesBreakdownResponseItem,
+);
+
+/**
  * @summary List users
  */
 export const ListUsersResponseItem = zod.object({

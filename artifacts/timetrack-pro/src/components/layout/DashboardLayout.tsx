@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   ScrollText,
   ExternalLink,
+  UserCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -33,14 +34,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const [location] = useLocation();
 
   const navigation = [
+    { name: "Panel Global", href: "/app/dashboard", icon: LayoutDashboard, roles: ["super_admin"] },
     { name: "Empresas", href: "/app/companies", icon: Building2, roles: ["super_admin"] },
-    { name: "Panel", href: "/app/dashboard", icon: LayoutDashboard, roles: ["admin", "super_admin"] },
+    { name: "Panel", href: "/app/dashboard", icon: LayoutDashboard, roles: ["admin"] },
     { name: "Empleados", href: "/app/employees", icon: Users, roles: ["admin"] },
     { name: "Reportes", href: "/app/reports", icon: FileText, roles: ["admin"] },
     { name: "Usuarios", href: "/app/users", icon: Settings, roles: ["admin"] },
     { name: "Jornada Laboral", href: "/app/workshift", icon: Calendar, roles: ["admin"] },
     { name: "Roles y Permisos", href: "/app/settings/roles", icon: ShieldCheck, roles: ["admin", "super_admin"] },
     { name: "Registro de Auditoría", href: "/app/settings/audit", icon: ScrollText, roles: ["admin", "super_admin"] },
+    { name: "Mi Perfil", href: "/app/profile", icon: UserCircle, roles: ["super_admin", "admin", "employee"] },
   ];
 
   const filteredNav = navigation.filter((item) => user && item.roles.includes(user.role));
@@ -76,17 +79,17 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           );
         })}
 
-        {user && (user.role === "admin" || user.role === "super_admin") && (
+        {user && (
           <a
             href={terminalUrl}
-            target="_blank"
+            target={user.role === "employee" ? "_self" : "_blank"}
             rel="noopener noreferrer"
             onClick={onNavigate}
             className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             <TerminalIcon className="w-4 h-4" />
-            <span className="flex-1">Abrir Terminal</span>
-            <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+            <span className="flex-1">Terminal</span>
+            {user.role !== "employee" && <ExternalLink className="w-3.5 h-3.5 opacity-60" />}
           </a>
         )}
       </nav>

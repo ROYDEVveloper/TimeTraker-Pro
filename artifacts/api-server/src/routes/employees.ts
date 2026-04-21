@@ -11,7 +11,7 @@ const DAY_MAP: Record<number, string> = {
 
 const router: IRouter = Router();
 
-router.get("/employees", requireAuth, async (req, res): Promise<void> => {
+router.get("/employees", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const companyId = req.user!.companyId;
   if (!companyId) {
     res.status(403).json({ error: "Se requiere contexto de empresa" });
@@ -121,7 +121,7 @@ router.put("/employees/:id/pin", requireAuth, requireRole("admin"), async (req, 
   res.json(employee);
 });
 
-router.get("/employees/status", requireAuth, async (req, res): Promise<void> => {
+router.get("/employees/status", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const companyId = req.user!.companyId;
   if (!companyId) {
     res.status(403).json({ error: "Se requiere contexto de empresa" });
@@ -194,7 +194,7 @@ router.get("/employees/status", requireAuth, async (req, res): Promise<void> => 
   res.json(result);
 });
 
-router.get("/employees/:id", requireAuth, async (req, res): Promise<void> => {
+router.get("/employees/:id", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const companyId = req.user!.companyId;
   const id = parseInt(req.params.id);
   if (isNaN(id)) {

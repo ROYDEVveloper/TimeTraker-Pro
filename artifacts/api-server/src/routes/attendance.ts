@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { db, employeesTable, attendanceLogsTable } from "@workspace/db";
 import { eq, desc, and, gte, lte, sql, inArray } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireRole } from "../middlewares/auth";
 import { audit } from "../lib/audit";
 
 const router: IRouter = Router();
@@ -276,7 +276,7 @@ router.get("/attendance/today-summary/:document", async (req, res): Promise<void
 });
 
 // Attendance logs (auth required, filtered by company)
-router.get("/attendance/logs", requireAuth, async (req, res): Promise<void> => {
+router.get("/attendance/logs", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const companyId = req.user!.companyId;
   if (!companyId) {
     res.status(403).json({ error: "Se requiere contexto de empresa" });
@@ -328,7 +328,7 @@ router.get("/attendance/logs", requireAuth, async (req, res): Promise<void> => {
 });
 
 // Today's activity (auth required, filtered by company)
-router.get("/attendance/today", requireAuth, async (req, res): Promise<void> => {
+router.get("/attendance/today", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const companyId = req.user!.companyId;
   if (!companyId) {
     res.status(403).json({ error: "Se requiere contexto de empresa" });
@@ -356,7 +356,7 @@ router.get("/attendance/today", requireAuth, async (req, res): Promise<void> => 
 });
 
 // Employee attendance history (auth required)
-router.get("/attendance/employee/:id", requireAuth, async (req, res): Promise<void> => {
+router.get("/attendance/employee/:id", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const companyId = req.user!.companyId;
   const empId = parseInt(req.params.id);
   if (isNaN(empId)) {

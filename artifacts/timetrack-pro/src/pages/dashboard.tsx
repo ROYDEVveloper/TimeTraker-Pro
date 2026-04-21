@@ -1,7 +1,15 @@
-import { useGetDashboardSummary, useGetAttendanceTrends, useGetTodayActivity } from "@workspace/api-client-react";
+import {
+  useGetDashboardSummary,
+  useGetAttendanceTrends,
+  useGetTodayActivity,
+  useGetGlobalSummary,
+  useGetGlobalTrends,
+  useGetCompaniesBreakdown,
+} from "@workspace/api-client-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { useAuth } from "@/contexts/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Users, UserCheck, UserX, LogIn, LogOut } from "lucide-react";
+import { Users, UserCheck, UserX, LogIn, LogOut, Building2, Activity } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -9,11 +17,11 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
   return (
     <div className="bg-card border border-border rounded-xl p-5">
       <div className="flex items-start justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-sm text-muted-foreground font-medium">{label}</p>
           <p className="text-3xl font-bold mt-1 font-mono">{value}</p>
         </div>
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color}`}>
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
           <Icon className="w-5 h-5" />
         </div>
       </div>
@@ -21,7 +29,110 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
   );
 }
 
-export default function Dashboard() {
+function SuperAdminDashboard() {
+  const { data: summary, isLoading } = useGetGlobalSummary({ query: { refetchInterval: 30000 } });
+  const { data: trends } = useGetGlobalTrends({ query: { refetchInterval: 30000 } });
+  const { data: breakdown, isLoading: breakdownLoading } = useGetCompaniesBreakdown({ query: { refetchInterval: 30000 } });
+
+  const chartData = trends?.map((t) => ({
+    fecha: format(new Date(t.date + "T12:00:00"), "EEE", { locale: es }),
+    "Entradas": t.checkIns,
+    "Salidas": t.checkOuts,
+  }));
+
+  const breakdownChart = breakdown?.map((b) => ({
+    empresa: b.companyName,
+    "Empleados": b.employees,
+    "Entradas hoy": b.checkInsToday,
+  }));
+
+  return (
+    <DashboardLayout>
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div>
+          <h1 className="text-xl font-semibold">Panel Global</h1>
+          <p className="text-sm text-muted-foreground mt-0.5 capitalize">
+            {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-card border border-border rounded-xl p-5 animate-pulse h-24" />
+            ))
+          ) : (
+            <>
+              <StatCard icon={Building2} label="Empresas" value={summary?.totalCompanies ?? 0} color="bg-primary/10 text-primary" />
+              <StatCard icon={Users} label="Empleados (global)" value={summary?.totalEmployees ?? 0} color="bg-chart-2/10 text-chart-2" />
+              <StatCard icon={LogIn} label="Entradas hoy" value={summary?.checkInsToday ?? 0} color="bg-primary/10 text-primary" />
+              <StatCard icon={LogOut} label="Salidas hoy" value={summary?.checkOutsToday ?? 0} color="bg-chart-3/10 text-chart-3" />
+              <StatCard icon={Activity} label="Empresas activas hoy" value={summary?.activeCompaniesToday ?? 0} color="bg-chart-4/10 text-chart-4" />
+            </>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h2 className="text-sm font-semibold mb-4">Asistencia Global — Últimos 7 días</h2>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={chartData} barSize={10}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="fecha" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    color: "hsl(var(--foreground))",
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: "12px" }} />
+                <Bar dataKey="Entradas" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Salidas" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h2 className="text-sm font-semibold mb-4">Empleados y entradas por empresa</h2>
+            {breakdownLoading ? (
+              <div className="h-[260px] bg-secondary/40 rounded animate-pulse" />
+            ) : breakdown && breakdown.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={breakdownChart} barSize={14}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="empresa" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      color: "hsl(var(--foreground))",
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: "12px" }} />
+                  <Bar dataKey="Empleados" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Entradas hoy" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[260px]">
+                <p className="text-sm text-muted-foreground">Sin empresas registradas</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+}
+
+function AdminDashboard() {
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary({
     query: { refetchInterval: 30000 },
   });
@@ -137,4 +248,12 @@ export default function Dashboard() {
       </div>
     </DashboardLayout>
   );
+}
+
+export default function Dashboard() {
+  const { user } = useAuth();
+  if (user?.role === "super_admin") {
+    return <SuperAdminDashboard />;
+  }
+  return <AdminDashboard />;
 }

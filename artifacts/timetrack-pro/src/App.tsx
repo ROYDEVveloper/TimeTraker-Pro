@@ -18,6 +18,7 @@ import WorkScheduleSettings from "@/pages/settings/workSchedule";
 import RolesSettings from "@/pages/settings/roles";
 import AuditLogs from "@/pages/settings/audit";
 import Companies from "@/pages/companies";
+import Profile from "@/pages/profile";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +40,9 @@ function AppRouter() {
       {/* Admin routes (under /app) */}
       <Route path="/app/dashboard">
         <ProtectedRoute component={Dashboard} allowedRoles={["super_admin", "admin"]} />
+      </Route>
+      <Route path="/app/profile">
+        <ProtectedRoute component={Profile} allowedRoles={["super_admin", "admin", "employee"]} />
       </Route>
       <Route path="/app/companies">
         <ProtectedRoute component={Companies} allowedRoles={["super_admin"]} />

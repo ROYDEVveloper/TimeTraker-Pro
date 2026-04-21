@@ -280,6 +280,22 @@ export interface AttendanceTrendDay {
   checkOuts: number;
 }
 
+export interface GlobalSummary {
+  totalCompanies: number;
+  totalEmployees: number;
+  checkInsToday: number;
+  checkOutsToday: number;
+  activeCompaniesToday: number;
+}
+
+export interface CompanyBreakdown {
+  companyId: number;
+  companyName: string;
+  employees: number;
+  checkInsToday: number;
+  checkOutsToday: number;
+}
+
 export interface WorkSchedule {
   id: number;
   companyId?: number | null;

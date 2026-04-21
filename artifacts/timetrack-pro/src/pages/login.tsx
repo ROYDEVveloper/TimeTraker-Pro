@@ -22,8 +22,10 @@ export default function Login() {
       const result = await loginMutation.mutateAsync({ data: { email, password } });
       login(result.token);
       const role = result.user.role;
-      if (role === "super_admin") {
-        setLocation("/app/companies");
+      if (role === "employee") {
+        setLocation("/terminal");
+      } else if (role === "super_admin") {
+        setLocation("/app/dashboard");
       } else {
         setLocation("/app/dashboard");
       }
